@@ -1,0 +1,16 @@
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+BreakBeforeBraces: Linux
+ColumnLimit: 120
+IncludeCategories:
+  - Regex:           '^"(llvm|llvm-c|clang|clang-c|dzieja)/'
+    Priority:        2
+    SortPriority:    0
+  - Regex:           '^(<|"(gtest|gmock|isl|json)/)'
+    Priority:        3
+    SortPriority:    0
+  - Regex:           '.*'
+    Priority:        1
+    SortPriority:    0
