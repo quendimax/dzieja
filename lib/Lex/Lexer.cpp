@@ -17,20 +17,15 @@ Lexer::Lexer(const char *BufStart, const char *BufPtr, const char *BufEnd)
     if (BufferStart == BufferPtr) {
         StringRef Buffer(BufferStart, BufferEnd - BufferStart);
         size_t BOMLength = StringSwitch<size_t>(Buffer)
-            .StartsWith("xEFxBBxBF", 3)
+            .StartsWith("\xEF\xBB\xBF", 3)
             .Default(0);
         BufferStart += BOMLength;
     }
 }
 
 Lexer::Lexer(const MemoryBuffer *InputFile)
-    : Lexer(InputFile->getBufferStart(), InputFile->getBufferStart(), InputFile->getBufferEnd())
-{
-}
+    : Lexer(InputFile->getBufferStart(), InputFile->getBufferStart(), InputFile->getBufferEnd()) {}
 
-void Lexer::Lex(Token &Result)
-{
-
-}
+void Lexer::Lex(Token &Result) {}
 
 } // namespace dzieja

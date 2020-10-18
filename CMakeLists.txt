@@ -68,3 +68,4 @@ if (NOT LLVM_INSTALL_TOOLCHAIN_ONLY)
 endif()
 
 add_subdirectory(lib)
+add_subdirectory(utils)
