@@ -1,5 +1,5 @@
-set(LLVM_LINK_COMPONENTS support)
+add_library(dziejaLex
+    Lexer.cpp)
 
-add_dzieja_library(dziejaLex
-        Lexer.cpp
-        )
+target_link_libraries(dziejaLex
+    LLVMSupport)

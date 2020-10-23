@@ -1,3 +1,6 @@
+#ifndef DZIEJA_UTILS_LEXGEN_NFA_H
+#define DZIEJA_UTILS_LEXGEN_NFA_H
+
 #include <limits>
 #include <vector>
 #include <iostream>
@@ -36,3 +39,5 @@ public:
 
     ~State() { std::cout << "Bye\n"; }
 };
+
+#endif // DZIEJA_UTILS_LEXGEN_NFA_H

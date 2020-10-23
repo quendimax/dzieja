@@ -1,15 +1,9 @@
-//
-// Created by quendimax on 12.07.20.
-//
-
 #ifndef DZIEJA_LEX_LEXER_H
 #define DZIEJA_LEX_LEXER_H
 
 namespace llvm {
-
 class MemoryBuffer;
-
-} // namespace llvm
+}
 
 namespace dzieja {
 

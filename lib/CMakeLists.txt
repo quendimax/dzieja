@@ -1,1 +1,1 @@
-add_dzieja_subdirectory(Lex)
+add_subdirectory(Lex)
