@@ -21,5 +21,8 @@ include_directories(BEFORE
     ${DZIEJA_BINARY_DIR}/include
     ${DZIEJA_SOURCE_DIR}/include)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED 20)
+
 add_subdirectory(lib)
 add_subdirectory(utils)
