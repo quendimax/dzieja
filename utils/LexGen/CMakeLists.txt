@@ -1,5 +1,5 @@
 add_executable(lexgen
+    FiniteAutomaton.cpp
+    FiniteAutomaton.h
     main.cpp
-    NFA.h
-    NFA.cpp
 )
