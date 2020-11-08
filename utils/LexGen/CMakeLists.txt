@@ -3,3 +3,7 @@ add_executable(lexgen
     FiniteAutomaton.h
     main.cpp
 )
+
+target_link_libraries(lexgen
+    LLVMSupport
+)
