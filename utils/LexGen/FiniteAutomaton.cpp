@@ -38,7 +38,8 @@ void NFA::parseRegex(const char *str)
     q0->connectTo(q1, 'a');
 }
 
-/// This function looks for new state set, an equivalent of the next DNA state for the edge `symbol`.
+/// This function looks for new state set, an equivalent of the next DNA state for the edge
+/// `symbol`.
 static StateSet findDFAState(const StateSet &states, int symbol)
 {
     StateSet newStates;
@@ -59,7 +60,7 @@ NFA NFA::buildDFA() const
     std::map<const StateSet, State *> convTable;
     NFA dfa;
     StateSet setQ0 = getStartState()->getEspClosure();
-    std::function<State * (const StateSet &set)> convert;
+    std::function<State *(const StateSet &set)> convert;
 
     convert = [&](const StateSet &set) {
         if (convTable.contains(set))

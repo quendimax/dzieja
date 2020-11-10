@@ -1,11 +1,10 @@
 #ifndef DZIEJA_UTILS_LEXGEN_FINITEAUTOMATON_H
 #define DZIEJA_UTILS_LEXGEN_FINITEAUTOMATON_H
 
-#include <limits>
-#include <map>
-#include <set>
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/SmallVector.h>
+#include <limits>
+#include <map>
 
 class State;
 

@@ -1,16 +1,143 @@
-BasedOnStyle: LLVM
+---
+Language: Cpp
+AccessModifierOffset: -4
 
-IndentWidth: 4
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: false
+AlignConsecutiveBitFields: true
+AlignConsecutiveDeclarations: false
+AlignConsecutiveMacros: false
+AlignEscapedNewlines: Left
+AlignOperands: AlignAfterOperator
+AlignTrailingComments: true
+
+AllowAllArgumentsOnNextLine: true
+AllowAllConstructorInitializersOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: false
+
+AlwaysBreakAfterReturnType: None
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: Yes
+
+# AttributeMacros:
+
+BinPackArguments: true
+BinPackParameters: true
+# BitFieldColonSpacing: Both  # clang-format-12
+# BraceWrapping: I don't use it becuase BrakBeforeBraces set to Stroustrup
+BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBraces: Stroustrup
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeComma 
+BreakInheritanceList: AfterColon
+BreakStringLiterals: false 
+
+ColumnLimit: 100
+
+# CommentPragmas: 
+
+CompactNamespaces: false
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 4
-BreakBeforeBraces: Linux
-ColumnLimit: 120
+ContinuationIndentWidth: 4
+Cpp11BracedListStyle: true
+
+DeriveLineEnding: true
+DerivePointerAlignment: false
+DisableFormat: false
+ExperimentalAutoDetectBinPacking: false
+
+FixNamespaceComments: true
+ForEachMacros:
+  - foreach
+  - Q_FOREACH
+  - BOOST_FOREACH
+
+IncludeBlocks: Preserve
 IncludeCategories:
-  - Regex:           '^"(llvm|llvm-c|clang|clang-c|dzieja)/'
-    Priority:        2
-    SortPriority:    0
-  - Regex:           '^(<|"(gtest|gmock|isl|json)/)'
-    Priority:        3
-    SortPriority:    0
-  - Regex:           '.*'
-    Priority:        1
-    SortPriority:    0
+  - Regex: '".+'  # custom headers
+    Priority: 1
+  - Regex: '[<"](llvm|llvm-c|clang|clang-c|dzieja)/'  # llvm headers for the other projects
+    Priority: 2
+  - Regex: '<(gtest|gmock)/'
+    Priority: 3
+  - Regex: '<.+>'    # stl and other headers
+    Priority: 4
+IncludeIsMainRegex: '(Test)?$'
+IncludeIsMainSourceRegex: ''
+
+IndentCaseBlocks: false
+IndentCaseLabels: false
+IndentExternBlock: NoIndent
+IndentGotoLabels: false
+IndentPPDirectives: AfterHash
+IndentWidth: 4
+IndentWrappedFunctionNames: false 
+
+InsertTrailingCommas: None
+KeepEmptyLinesAtTheStartOfBlocks: true
+
+# MacroBlockBegin:
+# MacroBlockEnd:
+
+MaxEmptyLinesToKeep: 2
+
+NamespaceIndentation: None
+NamespaceMacros:
+
+PenaltyBreakAssignment: 2
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakFirstLessLess: 120
+PenaltyBreakString: 1000
+PenaltyBreakTemplateDeclaration: 10
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 60
+
+PointerAlignment: Right
+ReflowComments: true
+SortIncludes: true
+SortUsingDeclarations: true
+
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: false
+# SpaceAroundPointerQualifiers: Default  # clang-format-12
+SpaceBeforeAssignmentOperators: true 
+SpaceBeforeCpp11BracedList: false 
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false 
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement: false
+SpacesInContainerLiterals: false 
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+Standard: Latest
+
+StatementMacros:
+  - Q_UNUSED
+  - QT_REQUIRE_VERSION
+TabWidth: 4
+# TypeNameMacros: 
+UseCRLF: false
+UseTab: Never
+WhitespaceSensitiveMacros:
+  - STRINGIZE
+  - PP_STRINGIZE
+  - BOOST_PP_STRINGIZE
+...
