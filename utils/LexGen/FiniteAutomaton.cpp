@@ -1,4 +1,6 @@
 #include "FiniteAutomaton.h"
+
+#include <llvm/ADT/STLExtras.h>
 #include <cassert>
 #include <functional>
 #include <memory>
@@ -11,13 +13,12 @@ StateSet State::getEspClosure() const
     StateSet closure;
     function<void(const State *state)> finder;
     finder = [&closure, &finder](const State *state) {
-        if (closure.contains(state))
+        if (is_contained(closure, state))
             return;
         closure.insert(state);
-        for (const Edge &edge : state->getEdges()) {
+        for (const Edge &edge : state->getEdges())
             if (edge.getSymbol() == Edge::Epsilon)
                 finder(edge.getTarget());
-        }
     };
     finder(this);
     return closure;
@@ -30,12 +31,21 @@ State *NFA::makeState(bool terminal)
     return storage.back().get();
 }
 
-void NFA::parseRegex(const char *str)
+void NFA::parseRawString(const char *str)
+{
+    auto curState = makeState();
+    Q0->connectTo(curState, Edge::Epsilon);
+    while (*str++) {
+        auto newState = makeState();
+        curState->connectTo(newState, *str);
+        curState = newState;
+    }
+    curState->setTerminal();
+}
+
+void NFA::parseRegex(const char *regex)
 {
     // TODO: add parsing of regex
-    auto q0 = makeState();
-    auto q1 = makeState(true);
-    q0->connectTo(q1, 'a');
 }
 
 /// This function looks for new state set, an equivalent of the next DNA state for the edge
@@ -57,14 +67,15 @@ static StateSet findDFAState(const StateSet &states, int symbol)
 /// Every state of new DNA has only one edge for one symbol.
 NFA NFA::buildDFA() const
 {
-    std::map<const StateSet, State *> convTable;
+    map<const StateSet, State *> convTable;
     NFA dfa;
     StateSet setQ0 = getStartState()->getEspClosure();
-    std::function<State *(const StateSet &set)> convert;
+    function<State *(const StateSet &set)> convert;
 
     convert = [&](const StateSet &set) {
-        if (convTable.contains(set))
-            return convTable.at(set);
+        auto iter = convTable.find(set);
+        if (iter != convTable.end())
+            return iter->second;
 
         auto newState = dfa.makeState();
         for (const auto state : set) {
