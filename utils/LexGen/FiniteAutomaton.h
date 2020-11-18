@@ -15,6 +15,7 @@
 
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/Support/raw_ostream.h>
 #include <limits>
 #include <map>
 #include <memory>
@@ -66,7 +67,7 @@ private:
 /// It can build new graph DFA, that is contained inside new instance of the NFA class. That new DFA
 /// can be converted into C-implementation of the delta-function which is used in the dziejaLex
 /// library.
-/// 
+///
 /// The start state of the NFA is built by default. New states are built with method parseRegex, and
 /// are joined to the start state with epsilone-edge.
 class NFA {
@@ -87,6 +88,8 @@ public:
 
     /// Builts new NFA instance that meets the DFA requirements
     NFA buildDFA() const;
+
+    void print(llvm::raw_ostream &) const;
 
 private:
     NFA(const NFA &) = delete;

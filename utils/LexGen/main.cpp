@@ -7,5 +7,9 @@ int main()
     nfa.parseRawString("free");
     NFA dfa = nfa.buildDFA();
 
+    nfa.print(llvm::outs());
+    llvm::outs() << "\n";
+    dfa.print(llvm::outs());
+
     return 0;
 }

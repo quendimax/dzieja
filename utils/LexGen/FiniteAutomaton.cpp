@@ -69,6 +69,7 @@ NFA NFA::buildDFA() const
 {
     map<const StateSet, State *> convTable;
     NFA dfa;
+    dfa.storage.pop_back(); // by default NFA instance contane start state
     StateSet setQ0 = getStartState()->getEspClosure();
     function<State *(const StateSet &set)> convert;
 
@@ -102,4 +103,18 @@ NFA NFA::buildDFA() const
     dfa.Q0 = convert(setQ0);
     dfa.isDFA = true;
     return dfa;
+}
+
+void NFA::print(raw_ostream &out) const {
+    for (const auto &state: storage) {
+        out << "State(" << state.get() << ")\n";
+        for (const auto &edge: state->getEdges()) {
+            out << " |- ";
+            if (edge.getSymbol() == Edge::Epsilon)
+                out << "Eps";
+            else
+                out << (char)edge.getSymbol();
+            out << " - State(" << edge.getTarget() << ")\n";
+        }
+    }
 }
