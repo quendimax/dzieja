@@ -4,7 +4,7 @@
 /// edges, and the wrapper for theam — the NFA class.
 ///
 /// Recommended references:
-/// - [1] Andrew W. Appel. Modern Compiler Implementation in C (good for begginers)
+/// - [1] Andrew W. Appel. Modern Compiler Implementation in C. (good for begginers)
 /// - [2] John E. Hopcroft, Rajeev Motwani, Jeffrey D. Ullman. Introduction to Automata Theory,
 /// Languages, and Computation. (has more details)
 ///
@@ -16,6 +16,8 @@
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/Support/raw_ostream.h>
+
+#include <cassert>
 #include <limits>
 #include <map>
 #include <memory>
@@ -33,7 +35,12 @@ class Edge {
 public:
     enum { Epsilon = std::numeric_limits<Symbol>::min() };
 
-    Edge(Symbol symbol, const State *target = nullptr) : target(target), symbol(symbol) {}
+    Edge(Symbol symbol, const State *target = nullptr) : target(target), symbol(symbol)
+    {
+        assert((symbol == (char)symbol || symbol == Epsilon)
+               && "the symbol must be either a char instance or the Epsilon");
+    }
+
     bool isEpsilon() const { return symbol == Epsilon; }
     Symbol getSymbol() const { return symbol; }
     const State *getTarget() const { return target; }
@@ -61,6 +68,8 @@ private:
     State &operator=(const State &) = delete;
 };
 
+llvm::raw_ostream &operator<<(llvm::raw_ostream &out, const State &state);
+
 
 /// The NFA class is a graph representation of epsilon-NFA.
 ///
@@ -68,8 +77,15 @@ private:
 /// can be converted into C-implementation of the delta-function which is used in the dziejaLex
 /// library.
 ///
-/// The start state of the NFA is built by default. New states are built with method parseRegex, and
-/// are joined to the start state with epsilone-edge.
+/// The start state of the NFA is built by default. New states are built with method \p parseRegex
+/// and \p parseRawString, and are joined to the start state with epsilone-edge. For instance,
+/// from two keywords "for" and "free" we will get the following NFA graph:
+/// \code
+///       Eps->(2)-'f'->(3)-'o'->(4)-'r'->[5]
+///      /
+///   (1)-Eps->(6)-'f'->(7)-'r'->(8)-'e'->(9)-'e'->[10]
+/// \endcode
+/// where (n) ‐ usual state, [n] ‐ terminal state.
 class NFA {
     llvm::SmallVector<std::unique_ptr<State>, 1> storage;
     State *Q0;
@@ -77,12 +93,20 @@ class NFA {
 
 public:
     NFA() : Q0(makeState()) {}
+    NFA(NFA &&) = default;
+    NFA &operator=(NFA &&) = default;
 
-    /// receives Q0 state — the start state of the finite automoton
+    /// Receives Q0 state — the start state of the finite automoton.
     const State *getStartState() const { return Q0; }
 
-    /// The method interprete any special character as usual, i.e. it builds simple chain of states.
-    /// From "for" we get (1) --f-> (2) --o-> (3) --r-> (4) where (4) is terminal state.
+    /// Builds an NFA-graph from raw string without interpreting special characters.
+    ///
+    /// It interprets any special character as usual, i.e. it builds a simple chain of states.
+    /// For example, from string \c "f\r" we'll get the following NFA-graph:
+    /// \code
+    ///   (1)-'f'->(2)-'\'->(3)-'r'->[4]
+    /// \endcode
+    /// where [4] is terminal state.
     void parseRawString(const char *str);
     void parseRegex(const char *regex);
 
@@ -94,8 +118,6 @@ public:
 private:
     NFA(const NFA &) = delete;
     NFA &operator=(const NFA &) = delete;
-    NFA(NFA &&) = default;
-    NFA &operator=(NFA &&) = default;
 
     State *makeState(bool isTerminal = false);
 };

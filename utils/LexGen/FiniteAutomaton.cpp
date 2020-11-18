@@ -24,6 +24,15 @@ StateSet State::getEspClosure() const
     return closure;
 }
 
+llvm::raw_ostream &operator<<(llvm::raw_ostream &out, const State &state)
+{
+    out << "State";
+    out << (state.isTerminal() ? "[" : "(");
+    out << &state;
+    out << (state.isTerminal() ? "]" : ")");
+    return out;
+}
+
 State *NFA::makeState(bool terminal)
 {
     auto newState = new State(terminal);
@@ -35,7 +44,7 @@ void NFA::parseRawString(const char *str)
 {
     auto curState = makeState();
     Q0->connectTo(curState, Edge::Epsilon);
-    while (*str++) {
+    for (; *str; str++) {
         auto newState = makeState();
         curState->connectTo(newState, *str);
         curState = newState;
@@ -64,12 +73,12 @@ static StateSet findDFAState(const StateSet &states, int symbol)
 
 /// Builds new NFA that satisfies the DNA requirements.
 ///
-/// Every state of new DNA has only one edge for one symbol.
+/// Every state of new DNA can't have edges with indentical symbols.
 NFA NFA::buildDFA() const
 {
     map<const StateSet, State *> convTable;
     NFA dfa;
-    dfa.storage.pop_back(); // by default NFA instance contane start state
+    dfa.storage.pop_back(); // by default NFA contains the start state, but here we don't need it
     StateSet setQ0 = getStartState()->getEspClosure();
     function<State *(const StateSet &set)> convert;
 
@@ -90,7 +99,8 @@ NFA NFA::buildDFA() const
         SmallSet<Symbol, 8> symbols;
         for (auto state : set)
             for (const Edge &edge : state->getEdges())
-                symbols.insert(edge.getSymbol());
+                if (!edge.isEpsilon())
+                    symbols.insert(edge.getSymbol());
 
         for (auto symbol : symbols) {
             auto targetSet = findDFAState(set, symbol);
@@ -105,16 +115,17 @@ NFA NFA::buildDFA() const
     return dfa;
 }
 
-void NFA::print(raw_ostream &out) const {
-    for (const auto &state: storage) {
-        out << "State(" << state.get() << ")\n";
-        for (const auto &edge: state->getEdges()) {
+void NFA::print(raw_ostream &out) const
+{
+    for (const auto &state : storage) {
+        out << *state << "\n";
+        for (const auto &edge : state->getEdges()) {
             out << " |- ";
-            if (edge.getSymbol() == Edge::Epsilon)
+            if (edge.isEpsilon())
                 out << "Eps";
             else
                 out << (char)edge.getSymbol();
-            out << " - State(" << edge.getTarget() << ")\n";
+            out << " - " << *edge.getTarget() << "\n";
         }
     }
 }
