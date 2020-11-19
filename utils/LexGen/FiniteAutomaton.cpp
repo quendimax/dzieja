@@ -71,9 +71,6 @@ static StateSet findDFAState(const StateSet &states, int symbol)
     return newStates;
 }
 
-/// Builds new NFA that satisfies the DNA requirements.
-///
-/// Every state of new DNA can't have edges with indentical symbols.
 NFA NFA::buildDFA() const
 {
     map<const StateSet, State *> convTable;

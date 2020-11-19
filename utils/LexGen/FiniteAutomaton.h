@@ -1,5 +1,6 @@
 //-----------------------------------------------------------------------------------*- C++ -*----//
 ///
+/// \file
 /// This file contains the declaration of structure parts of graph representation of NFA: states and
 /// edges, and the wrapper for theam — the NFA class.
 ///
@@ -24,7 +25,7 @@
 
 class State;
 
-using Symbol = int; /// it is enough 8 bits for symbols, but to express \c epsilon, we use \c int
+using Symbol = int; /// it is enough 8 bits for a symbols, but to express \c Epsilon, we use \c int.
 using StateSet = std::set<const State *>;
 
 
@@ -40,7 +41,6 @@ public:
         assert((symbol == (char)symbol || symbol == Epsilon)
                && "the symbol must be either a char instance or the Epsilon");
     }
-
     bool isEpsilon() const { return symbol == Epsilon; }
     Symbol getSymbol() const { return symbol; }
     const State *getTarget() const { return target; }
@@ -49,7 +49,7 @@ public:
 
 /// State for epsilone-NFA.
 ///
-/// It means that State instance can have some edges for every symbol includeing \c epsilon.
+/// As eNFA state the \p State can have multiple edges for every symbol includeing \c epsilon.
 class State {
     llvm::SmallVector<Edge, 0> edges;
     bool terminal;
@@ -74,12 +74,12 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &out, const State &state);
 /// The NFA class is a graph representation of epsilon-NFA.
 ///
 /// It can build new graph DFA, that is contained inside new instance of the NFA class. That new DFA
-/// can be converted into C-implementation of the delta-function which is used in the dziejaLex
+/// can be converted into C-implementation of the delta-function which is used in the \c dziejaLex
 /// library.
 ///
-/// The start state of the NFA is built by default. New states are built with method \p parseRegex
+/// The start state of the NFA is built by default. New states are built with methods \p parseRegex
 /// and \p parseRawString, and are joined to the start state with epsilone-edge. For instance,
-/// from two keywords "for" and "free" we will get the following NFA graph:
+/// from two keywords \c for and \c free we will get the following NFA graph:
 /// \code
 ///       Eps->(2)-'f'->(3)-'o'->(4)-'r'->[5]
 ///      /
@@ -87,7 +87,7 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &out, const State &state);
 /// \endcode
 /// where (n) ‐ usual state, [n] ‐ terminal state.
 class NFA {
-    llvm::SmallVector<std::unique_ptr<State>, 1> storage;
+    llvm::SmallVector<std::unique_ptr<State>, 0> storage;
     State *Q0;
     bool isDFA = false;
 
@@ -96,13 +96,13 @@ public:
     NFA(NFA &&) = default;
     NFA &operator=(NFA &&) = default;
 
-    /// Receives Q0 state — the start state of the finite automoton.
+    /// Receives Q0 state — the start state of the finite automaton.
     const State *getStartState() const { return Q0; }
 
     /// Builds an NFA-graph from raw string without interpreting special characters.
     ///
-    /// It interprets any special character as usual, i.e. it builds a simple chain of states.
-    /// For example, from string \c "f\r" we'll get the following NFA-graph:
+    /// It interprets any special character as usual one, i.e. it builds a simple chain of states.
+    /// For example, from string \c "f\r" we'll get the following states chain:
     /// \code
     ///   (1)-'f'->(2)-'\'->(3)-'r'->[4]
     /// \endcode
@@ -110,7 +110,9 @@ public:
     void parseRawString(const char *str);
     void parseRegex(const char *regex);
 
-    /// Builts new NFA instance that meets the DFA requirements
+    /// Builds new NFA instance that meets the DFA requirements.
+    ///
+    /// Every state of new DNA can't have edges with indentical symbols.
     NFA buildDFA() const;
 
     void print(llvm::raw_ostream &) const;
