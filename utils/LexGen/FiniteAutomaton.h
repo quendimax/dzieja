@@ -16,6 +16,7 @@
 
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/SmallVector.h>
+#include <llvm/ADT/StringRef.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include <cassert>
@@ -25,6 +26,7 @@
 
 class State;
 
+using StateID = unsigned int;
 using Symbol = int; /// it is enough 8 bits for a symbols, but to express \c Epsilon, we use \c int.
 using StateSet = std::set<const State *>;
 
@@ -52,11 +54,13 @@ public:
 /// As eNFA state the \p State can have multiple edges for every symbol includeing \c epsilon.
 class State {
     llvm::SmallVector<Edge, 0> edges;
+    StateID id;
     bool terminal;
 
 public:
-    State(bool terminal) : terminal(terminal) {}
+    State(StateID id, bool terminal) : id(id), terminal(terminal) {}
 
+    StateID getID() const { return id; }
     bool isTerminal() const { return terminal; }
     void setTerminal(bool value = true) { terminal = value; }
     const llvm::SmallVectorImpl<Edge> &getEdges() const { return edges; }
@@ -114,6 +118,8 @@ public:
     ///
     /// Every state of new DNA can't have edges with indentical symbols.
     NFA buildDFA() const;
+
+    bool generateTransTable(llvm::StringRef filename) const;
 
     void print(llvm::raw_ostream &) const;
 
