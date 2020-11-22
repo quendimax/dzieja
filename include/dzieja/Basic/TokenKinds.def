@@ -7,14 +7,20 @@
 #ifndef TOK
 #define TOK(name)
 #endif
+#ifndef TOKEN
+#define TOKEN(name, str) TOK(name)
+#endif
+#ifndef TOKEN_REGEX
+#define TOKEN_REGEX(name, regex) TOK(name)
+#endif
 #ifndef KEYWORD
-#define KEYWORD(name) TOK(kw_ ## name)
+#define KEYWORD(name) TOKEN(kw_##name, #name)
 #endif
 #ifndef PUNCTUATOR
-#define PUNCTUATOR(name, str) TOK(name)
+#define PUNCTUATOR(name, str) TOKEN(name, str)
 #endif
 
-TOK(invalid)
+TOK(unknown)
 TOK(comment)
 TOK(identifier)
 
@@ -40,4 +46,6 @@ PUNCTUATOR(period, ".")
 
 #undef PUNCTUATOR
 #undef KEYWORD
+#undef TOKEN_REGEX
+#undef TOKEN
 #undef TOK

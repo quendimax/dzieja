@@ -14,6 +14,8 @@
 #ifndef DZIEJA_UTILS_LEXGEN_FINITEAUTOMATON_H
 #define DZIEJA_UTILS_LEXGEN_FINITEAUTOMATON_H
 
+#include "dzieja/Basic/TokenKinds.h"
+
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
@@ -21,14 +23,17 @@
 
 #include <cassert>
 #include <limits>
-#include <map>
 #include <memory>
+#include <set>
 
 
 class State;
 
 using StateID = unsigned int;
-using Symbol = int; /// it is enough 8 bits for a symbols, but to express \c Epsilon, we use \c int.
+
+/// it is enough 8 bits for a symbols, but to express \c Epsilon, we use \c int.
+using Symbol = unsigned int;
+
 using StateSet = std::set<const State *>;
 
 
@@ -37,11 +42,11 @@ class Edge {
     Symbol symbol;
 
 public:
-    enum { Epsilon = std::numeric_limits<Symbol>::min() };
+    enum : Symbol { Epsilon = std::numeric_limits<Symbol>::max() };
 
     Edge(Symbol symbol, const State *target = nullptr) : target(target), symbol(symbol)
     {
-        assert((symbol == (char)symbol || symbol == Epsilon)
+        assert((symbol == (unsigned char)symbol || symbol == Epsilon)
                && "the symbol must be either a char instance or the Epsilon");
     }
     bool isEpsilon() const { return symbol == Epsilon; }
@@ -52,18 +57,22 @@ public:
 
 /// State for epsilone-NFA.
 ///
-/// As eNFA state the \p State can have multiple edges for every symbol includeing \c epsilon.
+/// As eNFA state the \p State can have multiple edges for every symbol including \c Epsilon.
+///
+/// \p kind is a marker of if the state is terminal. Non \c tok::unknown kind means that the state
+/// is terminal.
 class State {
     llvm::SmallVector<Edge, 0> edges;
     StateID id;
-    bool terminal;
+    dzieja::tok::TokenKind kind;
 
 public:
-    State(StateID id, bool terminal) : id(id), terminal(terminal) {}
+    State(StateID id, dzieja::tok::TokenKind kind = dzieja::tok::unknown) : id(id), kind(kind) {}
 
     StateID getID() const { return id; }
-    bool isTerminal() const { return terminal; }
-    void setTerminal(bool value = true) { terminal = value; }
+    bool isTerminal() const { return kind != dzieja::tok::unknown; }
+    dzieja::tok::TokenKind getKind() const { return kind; }
+    void setKind(dzieja::tok::TokenKind kind) { this->kind = kind; }
     const llvm::SmallVectorImpl<Edge> &getEdges() const { return edges; }
     void connectTo(const State *state, Symbol symbol) { edges.push_back(Edge(symbol, state)); }
     StateSet getEspClosure() const;
@@ -91,6 +100,9 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &out, const State &state);
 ///   (1)-Eps->(6)-'f'->(7)-'r'->(8)-'e'->(9)-'e'->[10]
 /// \endcode
 /// where (n) ‐ usual state, [n] ‐ terminal state.
+///
+/// After building of eNFA, you can create new \p NFA meeting DFA requirenments and then generate
+/// the DFA implementation via cpp-functions in a source file using \p generateCppImpl method.
 class NFA {
     llvm::SmallVector<std::unique_ptr<State>, 0> storage;
     State *Q0;
@@ -104,6 +116,8 @@ public:
     /// Receives Q0 state — the start state of the finite automaton.
     const State *getStartState() const { return Q0; }
 
+    size_t getNumStates() const { return storage.size(); }
+
     /// Builds an NFA-graph from raw string without interpreting special characters.
     ///
     /// It interprets any special character as usual one, i.e. it builds a simple chain of states.
@@ -112,8 +126,8 @@ public:
     ///   (1)-'f'->(2)-'\'->(3)-'r'->[4]
     /// \endcode
     /// where [4] is terminal state.
-    void parseRawString(const char *str);
-    void parseRegex(const char *regex);
+    void parseRawString(const char *str, dzieja::tok::TokenKind kind);
+    void parseRegex(const char *regex, dzieja::tok::TokenKind kind);
 
     /// Builds new NFA instance that meets the DFA requirements.
     ///
@@ -130,17 +144,20 @@ private:
     NFA(const NFA &) = delete;
     NFA &operator=(const NFA &) = delete;
 
-    State *makeState(bool isTerminal = false);
+    State *makeState(dzieja::tok::TokenKind kind = dzieja::tok::unknown);
 
-    void printTransitiveFunction(llvm::raw_ostream &) const;
 
     enum { TransTableRowSize = 128 }; // now ASCII char is supported only
     using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;
 
     TransitiveTable buildTransitiveTable() const;
-
-    /// Prints transitive function implemented via transitive table.
     void printTransitiveTable(const TransitiveTable &, llvm::raw_ostream &, int indent = 0) const;
+    void printKindTable(llvm::raw_ostream &, int indent = 0) const;
+
+    void printHeadComment(llvm::raw_ostream &) const;
+    /// Prints transitive function implemented via transitive table.
+    void printTransTableFunction(llvm::raw_ostream &) const;
+    void printTerminalFunction(llvm::raw_ostream &) const;
 };
 
 
