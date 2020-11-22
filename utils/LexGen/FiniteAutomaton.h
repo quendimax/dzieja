@@ -128,6 +128,12 @@ private:
     NFA &operator=(const NFA &) = delete;
 
     State *makeState(bool isTerminal = false);
+
+    enum { TransTableRowSize = 128 }; // now ASCII char is supported only
+    using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;
+
+    TransitiveTable buildTransitiveTable() const;
+    void printTransitiveTable(const TransitiveTable &, llvm::raw_ostream &) const;
 };
 
 #endif // DZIEJA_UTILS_LEXGEN_FINITEAUTOMATON_H

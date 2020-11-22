@@ -1,6 +1,7 @@
 #include "FiniteAutomaton.h"
 
 #include <llvm/ADT/STLExtras.h>
+#include <llvm/Support/WithColor.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include <cassert>
@@ -118,39 +119,23 @@ NFA NFA::buildDFA() const
 bool NFA::generateTransTable(StringRef filename) const
 {
     if (!isDFA) {
-        errs() << "you are trying generate trasitive table for non DNA";
+        WithColor::error() << "you are trying generate trasitive table for non DNA";
         return false;
     }
     if (storage.size() > std::numeric_limits<unsigned short>::max()) {
-        errs() << "number of state is too big for `unsigned short` cell of table";
+        WithColor::error() << "number of state is too big for `unsigned short` cell of table";
         return false;
     }
     error_code EC;
     raw_fd_ostream out(filename, EC);
     if (EC) {
-        errs() << EC.message() << "\n";
+        WithColor::error() << EC.message() << "\n";
         return false;
     }
 
-    const int INVALID_ID = storage.size();
-    const int RAW_SIZE = 128; // for ASCII characters
-    SmallVector<SmallVector<StateID, RAW_SIZE>, 0> transTable;
-    transTable.resize(storage.size());
-    for (auto &I : transTable)
-        I.resize(RAW_SIZE, INVALID_ID);
+    auto transTable = buildTransitiveTable();
+    printTransitiveTable(transTable, out);
 
-    for (StateID id = 0; id < storage.size(); id++) {
-        const auto *state = storage[id].get();
-        for (const auto &edge : state->getEdges()) {
-            transTable[id][edge.getSymbol()] = edge.getTarget()->getID();
-        }
-    }
-
-    for (const auto &raw : transTable) {
-        for (StateID id : raw)
-            out << id << " ";
-        out << "\n";
-    }
     return true;
 }
 
@@ -167,4 +152,47 @@ void NFA::print(raw_ostream &out) const
             out << " - " << *edge.getTarget() << "\n";
         }
     }
+}
+
+NFA::TransitiveTable NFA::buildTransitiveTable() const
+{
+    assert(isDFA && "it's expected that the NFA meets DNA requirements");
+
+    TransitiveTable transTable;
+    transTable.resize(storage.size());
+
+    const size_t INVALID_ID = storage.size();
+    for (auto &row : transTable)
+        row.resize(TransTableRowSize, INVALID_ID);
+
+    for (StateID id = 0; id < storage.size(); id++) {
+        const auto *state = storage[id].get();
+        for (const auto &edge : state->getEdges()) {
+            transTable[id][edge.getSymbol()] = edge.getTarget()->getID();
+        }
+    }
+    return transTable;
+}
+
+void NFA::printTransitiveTable(const TransitiveTable &table, raw_ostream &out) const
+{
+    const char *typeStr = "unsigned char";
+    if (storage.size() <= 0xffu)
+        typeStr = "uint8_t";
+    else if (storage.size() <= 0xffffu)
+        typeStr = "uint16_t";
+    else if (storage.size() <= 0xffffffffu)
+        typeStr = "uint32_t";
+
+    out << "#include <cstdint>\n\n";
+    out << "static const " << typeStr;
+    out << " TransitiveTable[" << storage.size() << "][" << TransTableRowSize << "] = {\n";
+    for (size_t i = 0; i < table.size(); i++) {
+        const auto &row = table[i];
+        out << "    {";
+        for (size_t j = 0; j < row.size(); j++)
+            out << row[j] << (j + 1 == row.size() ? "" : ", ");
+        out << "}" << (i + 1 == table.size() ? "\n" : ",\n");
+    }
+    out << "};\n";
 }
