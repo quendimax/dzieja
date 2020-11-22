@@ -24,6 +24,7 @@
 #include <map>
 #include <memory>
 
+
 class State;
 
 using StateID = unsigned int;
@@ -119,7 +120,9 @@ public:
     /// Every state of new DNA can't have edges with indentical symbols.
     NFA buildDFA() const;
 
-    bool generateTransTable(llvm::StringRef filename) const;
+    /// Generates '\p filename' source file which contains transitive funciton and terminal
+    /// function in order to pass through the \c NFA.
+    bool generateCppImpl(llvm::StringRef filename) const;
 
     void print(llvm::raw_ostream &) const;
 
@@ -129,11 +132,16 @@ private:
 
     State *makeState(bool isTerminal = false);
 
+    void printTransitiveFunction(llvm::raw_ostream &) const;
+
     enum { TransTableRowSize = 128 }; // now ASCII char is supported only
     using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;
 
     TransitiveTable buildTransitiveTable() const;
-    void printTransitiveTable(const TransitiveTable &, llvm::raw_ostream &) const;
+
+    /// Prints transitive function implemented via transitive table.
+    void printTransitiveTable(const TransitiveTable &, llvm::raw_ostream &, int indent = 0) const;
 };
+
 
 #endif // DZIEJA_UTILS_LEXGEN_FINITEAUTOMATON_H

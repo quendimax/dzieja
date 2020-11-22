@@ -1,12 +1,14 @@
 #include "FiniteAutomaton.h"
 
 #include <llvm/ADT/STLExtras.h>
+#include <llvm/ADT/SmallString.h>
 #include <llvm/Support/WithColor.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include <cassert>
 #include <functional>
 #include <memory>
+
 
 using namespace llvm;
 using namespace std;
@@ -116,7 +118,7 @@ NFA NFA::buildDFA() const
     return dfa;
 }
 
-bool NFA::generateTransTable(StringRef filename) const
+bool NFA::generateCppImpl(StringRef filename) const
 {
     if (!isDFA) {
         WithColor::error() << "you are trying generate trasitive table for non DNA";
@@ -133,8 +135,8 @@ bool NFA::generateTransTable(StringRef filename) const
         return false;
     }
 
-    auto transTable = buildTransitiveTable();
-    printTransitiveTable(transTable, out);
+    out << "#include <cstdint>\n\n";
+    printTransitiveFunction(out);
 
     return true;
 }
@@ -154,9 +156,19 @@ void NFA::print(raw_ostream &out) const
     }
 }
 
+void NFA::printTransitiveFunction(raw_ostream &out) const
+{
+    out << "static inline unsigned delta(unsigned stateID, int symbol)\n";
+    out << "{\n";
+    auto transTable = buildTransitiveTable();
+    printTransitiveTable(transTable, out, 4);
+    out << "    return TransitiveTable[stateID][symbol];\n";
+    out << "}\n";
+}
+
 NFA::TransitiveTable NFA::buildTransitiveTable() const
 {
-    assert(isDFA && "it's expected that the NFA meets DNA requirements");
+    assert(isDFA && "It's expected that the NFA meets DNA requirements");
 
     TransitiveTable transTable;
     transTable.resize(storage.size());
@@ -174,8 +186,11 @@ NFA::TransitiveTable NFA::buildTransitiveTable() const
     return transTable;
 }
 
-void NFA::printTransitiveTable(const TransitiveTable &table, raw_ostream &out) const
+void NFA::printTransitiveTable(const TransitiveTable &table, raw_ostream &out, int indent) const
 {
+    SmallString<16> indention;
+    for (int i = 0; i < indent; i++)
+        indention += ' ';
     const char *typeStr = "unsigned char";
     if (storage.size() <= 0xffu)
         typeStr = "uint8_t";
@@ -184,15 +199,14 @@ void NFA::printTransitiveTable(const TransitiveTable &table, raw_ostream &out) c
     else if (storage.size() <= 0xffffffffu)
         typeStr = "uint32_t";
 
-    out << "#include <cstdint>\n\n";
-    out << "static const " << typeStr;
+    out << indention << "static const " << typeStr;
     out << " TransitiveTable[" << storage.size() << "][" << TransTableRowSize << "] = {\n";
     for (size_t i = 0; i < table.size(); i++) {
         const auto &row = table[i];
-        out << "    {";
+        out << indention << "    {";
         for (size_t j = 0; j < row.size(); j++)
             out << row[j] << (j + 1 == row.size() ? "" : ", ");
         out << "}" << (i + 1 == table.size() ? "\n" : ",\n");
     }
-    out << "};\n";
+    out << indention << "};\n";
 }
