@@ -1,0 +1,43 @@
+//-----------------------------------------------------------------------------------*- C++ -*----//
+//
+// Contains enumeration of all tokens.
+//
+//------------------------------------------------------------------------------------------------//
+
+#ifndef TOK
+#define TOK(name)
+#endif
+#ifndef KEYWORD
+#define KEYWORD(name) TOK(kw_ ## name)
+#endif
+#ifndef PUNCTUATOR
+#define PUNCTUATOR(name, str) TOK(name)
+#endif
+
+TOK(invalid)
+TOK(comment)
+TOK(identifier)
+
+KEYWORD(i8)
+KEYWORD(i16)
+KEYWORD(i32)
+KEYWORD(i64)
+KEYWORD(int)
+KEYWORD(u8)
+KEYWORD(u16)
+KEYWORD(u32)
+KEYWORD(u64)
+KEYWORD(uint)
+KEYWORD(type)
+
+PUNCTUATOR(l_brace, "{")
+PUNCTUATOR(r_brace, "}")
+PUNCTUATOR(l_paren, "(")
+PUNCTUATOR(r_paren, ")")
+PUNCTUATOR(l_square, "[")
+PUNCTUATOR(r_square, "]")
+PUNCTUATOR(period, ".")
+
+#undef PUNCTUATOR
+#undef KEYWORD
+#undef TOK
