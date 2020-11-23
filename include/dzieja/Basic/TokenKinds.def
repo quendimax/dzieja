@@ -1,7 +1,12 @@
 //-----------------------------------------------------------------------------------*- C++ -*----//
-//
-// Contains enumeration of all tokens.
-//
+///
+/// Contains enumeration of all tokens.
+///
+/// Pay attention to order of token declarations! It can influences on resulting kind of a token in
+/// case if the token matches to two and more sequences. For example, word \c type corresponds to
+/// kind \p identifier and \p keyword, ans since the \p type keyword is declared earlier, the \p
+/// type word will have kind \c kw_type, not \c identifier.
+///
 //------------------------------------------------------------------------------------------------//
 
 #ifndef TOK
@@ -21,8 +26,6 @@
 #endif
 
 TOK(unknown)
-TOK(comment)
-TOK(identifier)
 
 KEYWORD(i8)
 KEYWORD(i16)
