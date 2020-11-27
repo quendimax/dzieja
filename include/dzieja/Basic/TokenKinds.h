@@ -12,7 +12,7 @@ namespace dzieja {
 
 namespace tok {
 
-enum TokenKind {
+enum TokenKind : unsigned short {
 #define TOK(name) name,
 #include "dzieja/Basic/TokenKinds.def"
     NUM_TOKENS

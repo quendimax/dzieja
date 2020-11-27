@@ -69,12 +69,14 @@ void NFA::parseRegex(const char *regex, tok::TokenKind kind)
 static StateSet findDFAState(const StateSet &states, Symbol symbol)
 {
     StateSet newStates;
-    for (const auto &state : states)
-        for (const auto &edge : state->getEdges())
+    for (const auto &state : states) {
+        for (const auto &edge : state->getEdges()) {
             if (edge.getSymbol() == symbol) {
                 auto closure = edge.getTarget()->getEspClosure();
                 newStates.insert(closure.begin(), closure.end());
             }
+        }
+    }
     return newStates;
 }
 
@@ -191,8 +193,6 @@ void NFA::printTransitiveTable(const TransitiveTable &table, raw_ostream &out, i
         typeStr = "uint8_t";
     else if (storage.size() <= 0xffffu)
         typeStr = "uint16_t";
-    else if (storage.size() <= 0xffffffffu)
-        typeStr = "uint32_t";
     else
         WithColor::error() << "number of states is too big. " << storage.size()
                            << " states can't be contained in uint32_t variable";

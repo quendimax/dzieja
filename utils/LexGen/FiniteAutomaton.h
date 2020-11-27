@@ -46,9 +46,15 @@ public:
 
     Edge(Symbol symbol, const State *target = nullptr) : target(target), symbol(symbol)
     {
-        assert((symbol == (unsigned char)symbol || symbol == Epsilon)
-               && "the symbol must be either a char instance or the Epsilon");
+        assert((symbol == (0x7f & symbol) || symbol == Epsilon)
+               && "the symbol must be either an ASCII character or the Epsilon");
     }
+
+    /// This constructor needs in order to get correct converting from signed char to \p Symbol.
+    Edge(char symbol, const State *target = nullptr) : Edge((Symbol)(unsigned char)symbol, target)
+    {
+    }
+
     bool isEpsilon() const { return symbol == Epsilon; }
     Symbol getSymbol() const { return symbol; }
     const State *getTarget() const { return target; }
@@ -75,6 +81,7 @@ public:
     void setKind(dzieja::tok::TokenKind kind) { this->kind = kind; }
     const llvm::SmallVectorImpl<Edge> &getEdges() const { return edges; }
     void connectTo(const State *state, Symbol symbol) { edges.push_back(Edge(symbol, state)); }
+    void connectTo(const State *state, char symbol) { edges.push_back(Edge(symbol, state)); }
     StateSet getEspClosure() const;
 
 private:
@@ -146,7 +153,6 @@ private:
 
     State *makeState(dzieja::tok::TokenKind kind = dzieja::tok::unknown);
 
-
     enum { TransTableRowSize = 128 }; // now ASCII char is supported only
     using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;
 
@@ -155,6 +161,7 @@ private:
     void printKindTable(llvm::raw_ostream &, int indent = 0) const;
 
     void printHeadComment(llvm::raw_ostream &) const;
+
     /// Prints transitive function implemented via transitive table.
     void printTransTableFunction(llvm::raw_ostream &) const;
     void printTerminalFunction(llvm::raw_ostream &) const;
