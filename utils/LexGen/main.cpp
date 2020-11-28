@@ -6,6 +6,7 @@ using namespace dzieja;
 int main()
 {
     NFA nfa;
+
 #define TOKEN(name, str) nfa.parseRawString(str, tok::name);
 #define TOKEN_REGEX(name, regex) nfa.parseRegex(regex, tok::name);
 #include "dzieja/Basic/TokenKinds.def"

@@ -27,6 +27,8 @@
 #include <set>
 
 
+namespace dzieja {
+
 class State;
 
 using StateID = unsigned int;
@@ -70,15 +72,15 @@ public:
 class State {
     llvm::SmallVector<Edge, 0> edges;
     StateID id;
-    dzieja::tok::TokenKind kind;
+    tok::TokenKind kind;
 
 public:
-    State(StateID id, dzieja::tok::TokenKind kind = dzieja::tok::unknown) : id(id), kind(kind) {}
+    State(StateID id, tok::TokenKind kind = tok::unknown) : id(id), kind(kind) {}
 
     StateID getID() const { return id; }
-    bool isTerminal() const { return kind != dzieja::tok::unknown; }
-    dzieja::tok::TokenKind getKind() const { return kind; }
-    void setKind(dzieja::tok::TokenKind kind) { this->kind = kind; }
+    bool isTerminal() const { return kind != tok::unknown; }
+    tok::TokenKind getKind() const { return kind; }
+    void setKind(tok::TokenKind kind) { this->kind = kind; }
     const llvm::SmallVectorImpl<Edge> &getEdges() const { return edges; }
     void connectTo(const State *state, Symbol symbol) { edges.push_back(Edge(symbol, state)); }
     void connectTo(const State *state, char symbol) { edges.push_back(Edge(symbol, state)); }
@@ -133,8 +135,8 @@ public:
     ///   (1)-'f'->(2)-'\'->(3)-'r'->[4]
     /// \endcode
     /// where [4] is terminal state.
-    void parseRawString(const char *str, dzieja::tok::TokenKind kind);
-    void parseRegex(const char *regex, dzieja::tok::TokenKind kind);
+    void parseRawString(const char *str, tok::TokenKind kind);
+    void parseRegex(const char *regex, tok::TokenKind kind);
 
     /// Builds new NFA instance that meets the DFA requirements.
     ///
@@ -151,7 +153,7 @@ private:
     NFA(const NFA &) = delete;
     NFA &operator=(const NFA &) = delete;
 
-    State *makeState(dzieja::tok::TokenKind kind = dzieja::tok::unknown);
+    State *makeState(tok::TokenKind kind = tok::unknown);
 
     enum { TransTableRowSize = 128 }; // now ASCII char is supported only
     using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;
@@ -160,12 +162,15 @@ private:
     void printTransitiveTable(const TransitiveTable &, llvm::raw_ostream &, int indent = 0) const;
     void printKindTable(llvm::raw_ostream &, int indent = 0) const;
 
-    void printHeadComment(llvm::raw_ostream &) const;
+    void printHeadComment(llvm::raw_ostream &, llvm::StringRef end = "") const;
+    void printInvalidStateConstant(llvm::raw_ostream &, llvm::StringRef end = "") const;
 
     /// Prints transitive function implemented via transitive table.
-    void printTransTableFunction(llvm::raw_ostream &) const;
-    void printTerminalFunction(llvm::raw_ostream &) const;
+    void printTransTableFunction(llvm::raw_ostream &, llvm::StringRef end = "") const;
+    void printTerminalFunction(llvm::raw_ostream &, llvm::StringRef end = "") const;
 };
+
+} // namespace dzieja
 
 
 #endif // DZIEJA_UTILS_LEXGEN_FINITEAUTOMATON_H
