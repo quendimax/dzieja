@@ -1,9 +1,9 @@
-add_executable(lexgen
+set(LLVM_LINK_COMPONENTS
+    Support
+)
+
+add_llvm_executable(dzieja-lexgen
     FiniteAutomaton.cpp
     FiniteAutomaton.h
     main.cpp
-)
-
-target_link_libraries(lexgen
-    LLVMSupport
 )
