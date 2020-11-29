@@ -124,7 +124,7 @@ NFA NFA::buildDFA() const
     return dfa;
 }
 
-bool NFA::generateCppImpl(StringRef filename) const
+bool NFA::generateCppImpl(StringRef filename, NFA::GeneratingMode mode) const
 {
     if (!isDFA) {
         WithColor::error() << "you are trying generate trasitive table for non DNA";
@@ -143,7 +143,12 @@ bool NFA::generateCppImpl(StringRef filename) const
 
     printHeadComment(out, "\n");
     printInvalidStateConstant(out, "\n\n");
-    printTransTableFunction(out, "\n\n");
+    if (mode == GM_Table)
+        printTransTableFunction(out, "\n\n");
+    else if (mode == GM_Switch)
+        llvm_unreachable("not implemented yet");
+    else
+        llvm_unreachable("Unknown mode of transitive function generating.");
     printTerminalFunction(out, "\n");
 
     return true;
@@ -250,8 +255,7 @@ void NFA::printInvalidStateConstant(llvm::raw_ostream &out, llvm::StringRef end)
 
 void NFA::printTransTableFunction(raw_ostream &out, llvm::StringRef end) const
 {
-    const char *typeStr = getTypeBySize(storage.size());
-    out << "static inline " << typeStr << " DFA_delta(unsigned stateID, unsigned symbol)\n";
+    out << "static inline unsigned DFA_delta(unsigned stateID, unsigned symbol)\n";
     out << "{\n";
     auto transTable = buildTransitiveTable();
     printTransitiveTable(transTable, out, 4);

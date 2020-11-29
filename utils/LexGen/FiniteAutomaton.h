@@ -118,6 +118,12 @@ class NFA {
     bool isDFA = false;
 
 public:
+    /// Specifies the mode of transitive function implementation.
+    enum GeneratingMode {
+        GM_Table, /// Generate delta-func via transitive table
+        GM_Switch /// Generate delta-func via switch-case control flow
+    };
+
     NFA() : Q0(makeState()) {}
     NFA(NFA &&) = default;
     NFA &operator=(NFA &&) = default;
@@ -145,7 +151,7 @@ public:
 
     /// Generates '\p filename' source file which contains transitive funciton and terminal
     /// function in order to pass through the \c NFA.
-    bool generateCppImpl(llvm::StringRef filename) const;
+    bool generateCppImpl(llvm::StringRef filename, GeneratingMode mode) const;
 
     void print(llvm::raw_ostream &) const;
 
