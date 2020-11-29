@@ -173,6 +173,14 @@ private:
 
     /// Prints transitive function implemented via transitive table.
     void printTransTableFunction(llvm::raw_ostream &, llvm::StringRef end = "") const;
+
+    /// Prints transitive function implemented via transitive table.
+    void printTransSwitchFunction(llvm::raw_ostream &, llvm::StringRef end = "") const;
+
+    /// Prints function returning TokenKind of given state.
+    ///
+    /// If the kind is \c tok::unknown it means that the state is not terminal, otherwise it is
+    /// terminal and marks the end of the parsed token.
     void printTerminalFunction(llvm::raw_ostream &, llvm::StringRef end = "") const;
 };
 
