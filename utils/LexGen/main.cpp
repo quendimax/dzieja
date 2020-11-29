@@ -17,10 +17,14 @@ static cl::opt<NFA::GeneratingMode>
                                   "Generate the function via switch-case control flow")),
             cl::desc("Specify mode of transitive (delta) function generating"));
 
+static const char *Overview =
+    "The program generates an inc-file with functions implementing DFA for\n"
+    "lexical analyze of text.\n";
+
 
 int main(int argc, char *argv[])
 {
-    cl::ParseCommandLineOptions(argc, argv);
+    cl::ParseCommandLineOptions(argc, argv, Overview);
 
     NFA nfa;
 #define TOKEN(name, str) nfa.parseRawString(str, tok::name);
