@@ -39,6 +39,12 @@ KEYWORD(u64)
 KEYWORD(uint)
 KEYWORD(type)
 
+TOKEN_REGEX(identifier, "[_a-zA-Z][_a-zA-Z0-9]*")
+TOKEN_REGEX(numeric_literal, "[0-9]+")
+TOKEN_REGEX(char_literal, "'[^']'")
+TOKEN_REGEX(string_literal, R"("(\\"|[^"])*")")
+TOKEN_REGEX(comment, R"((#[^\n]*\n)+)")
+
 PUNCTUATOR(l_brace, "{")
 PUNCTUATOR(r_brace, "}")
 PUNCTUATOR(l_paren, "(")
