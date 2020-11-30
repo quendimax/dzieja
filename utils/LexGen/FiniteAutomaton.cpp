@@ -6,7 +6,6 @@
 #include <llvm/Support/raw_ostream.h>
 
 #include <cassert>
-#include <functional>
 #include <map>
 #include <memory>
 
@@ -19,14 +18,16 @@ namespace dzieja {
 StateSet State::getEspClosure() const
 {
     StateSet closure;
-    function<void(const State *state)> finder;
-    finder = [&closure, &finder](const State *state) {
-        if (is_contained(closure, state))
-            return;
-        closure.insert(state);
-        for (const Edge &edge : state->getEdges())
-            if (edge.getSymbol() == Edge::Epsilon)
-                finder(edge.getTarget());
+    auto finder = [&closure](const State *state) {
+        auto finderImpl = [&closure](const State *state, auto &finderRef) {
+            if (is_contained(closure, state))
+                return;
+            closure.insert(state);
+            for (const Edge &edge : state->getEdges())
+                if (edge.getSymbol() == Edge::Epsilon)
+                    finderRef(edge.getTarget(), finderRef);
+        };
+        finderImpl(state, finderImpl);
     };
     finder(this);
     return closure;
@@ -87,37 +88,39 @@ NFA NFA::buildDFA() const
     NFA dfa;
     dfa.storage.pop_back(); // by default NFA contains the start state, but here we don't need it
     StateSet setQ0 = getStartState()->getEspClosure();
-    function<State *(const StateSet &set)> convert;
 
-    convert = [&](const StateSet &set) {
-        auto iter = convTable.find(set);
-        if (iter != convTable.end())
-            return iter->second;
+    auto convert = [&](const StateSet &set) {
+        auto convertImpl = [&](const StateSet &set, auto &convertRef) {
+            auto iter = convTable.find(set);
+            if (iter != convTable.end())
+                return iter->second;
 
-        auto newState = dfa.makeState();
-        StateID minID = this->getNumStates();
-        for (const auto state : set) {
-            if (state->isTerminal() && state->getID() < minID) {
-                // lesser ID means that the state was defined earlier and has higher priority
-                minID = state->getID();
-                newState->setKind(state->getKind());
+            auto newState = dfa.makeState();
+            StateID minID = this->getNumStates();
+            for (const auto state : set) {
+                if (state->isTerminal() && state->getID() < minID) {
+                    // lesser ID means that the state was defined earlier and has higher priority
+                    minID = state->getID();
+                    newState->setKind(state->getKind());
+                }
             }
-        }
-        convTable[set] = newState;
+            convTable[set] = newState;
 
-        SmallSet<Symbol, 8> symbols;
-        for (auto state : set)
-            for (const Edge &edge : state->getEdges())
-                if (!edge.isEpsilon())
-                    symbols.insert(edge.getSymbol());
+            SmallSet<Symbol, 8> symbols;
+            for (auto state : set)
+                for (const Edge &edge : state->getEdges())
+                    if (!edge.isEpsilon())
+                        symbols.insert(edge.getSymbol());
 
-        for (auto symbol : symbols) {
-            auto targetSet = findDFAState(set, symbol);
-            assert(!targetSet.empty() && "target set musn't be empty");
-            auto targetState = convert(targetSet);
-            newState->connectTo(targetState, symbol);
-        }
-        return newState;
+            for (auto symbol : symbols) {
+                auto targetSet = findDFAState(set, symbol);
+                assert(!targetSet.empty() && "target set musn't be empty");
+                auto targetState = convertRef(targetSet, convertRef);
+                newState->connectTo(targetState, symbol);
+            }
+            return newState;
+        };
+        return convertImpl(set, convertImpl);
     };
     dfa.Q0 = convert(setQ0);
     dfa.isDFA = true;
@@ -257,24 +260,25 @@ void NFA::printInvalidStateConstant(llvm::raw_ostream &out, llvm::StringRef end)
 
 void NFA::printTransTableFunction(raw_ostream &out, llvm::StringRef end) const
 {
-    out << "static inline unsigned DFA_delta(unsigned stateID, unsigned symbol)\n";
+    out << "static inline unsigned DFA_delta(unsigned stateID, char symbol)\n";
     out << "{\n";
     auto transTable = buildTransitiveTable();
     printTransitiveTable(transTable, out, 4);
-    out << "    return TransitiveTable[stateID][symbol];\n";
+    out << "    return TransitiveTable[stateID][(unsigned char)symbol];\n";
     out << "}" << end;
 }
 
 void NFA::printTransSwitchFunction(llvm::raw_ostream &out, llvm::StringRef end) const
 {
-    out << "static inline unsigned short DFA_delta(unsigned stateID, unsigned symbol)\n";
+    out << "static inline unsigned short DFA_delta(unsigned stateID, char symbol)\n";
     out << "{\n";
+    out << "    unsigned char usymbol = symbol;\n";
     out << "    switch (stateID) {\n";
     auto transTable = buildTransitiveTable();
     const size_t InvalidID = storage.size();
     for (size_t id = 0; id < transTable.size(); ++id) {
         out << "    case " << id << "u:\n";
-        out << "        switch (symbol) {\n";
+        out << "        switch (usymbol) {\n";
         const auto &row = transTable[id];
         for (unsigned ch = 0; ch < row.size(); ++ch)
             if (row[ch] != InvalidID)
