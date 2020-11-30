@@ -142,8 +142,21 @@ public:
     /// \endcode
     /// where [4] is terminal state.
     void parseRawString(const char *str, tok::TokenKind kind);
+
+    /// Builds an NFE-graph from the regular excpression subset.
+    ///
+    ///
     void parseRegex(const char *regex, tok::TokenKind kind);
 
+private:
+    State *parsePlain(const char *&expr, const State *prevState);
+    State *parseBackslash(const char *&expr, const State *prevState);
+    State *parseParen(const char *&expr, const State *prevState);
+    State *parseSquare(const char *&expr, const State *prevState);
+    State *parseStar(const char *&expr, const State *prevState);
+    State *parsePlus(const char *&expr, const State *prevState);
+
+public:
     /// Builds new NFA instance that meets the DFA requirements.
     ///
     /// Every state of new DNA can't have edges with indentical symbols.

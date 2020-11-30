@@ -61,9 +61,47 @@ void NFA::parseRawString(const char *str, tok::TokenKind kind)
     curState->setKind(kind);
 }
 
-void NFA::parseRegex(const char *regex, tok::TokenKind kind)
+void NFA::parseRegex(const char *expr, tok::TokenKind kind)
 {
-    // TODO: add parsing of regex
+    do {
+        auto terminalState = parsePlain(expr, Q0);
+        terminalState->setKind(kind);
+    } while (*expr++ == '|');
+    assert(*--expr == '\0' && "parsing must be ended with zero character");
+}
+
+State *NFA::parseBackslash(const char *&expr, const State *prevState)
+{
+    assert(*expr == '\\' && "there is expected backslashed symbol to see");
+
+    ++expr;
+    char ch;
+    switch (*expr) {
+    case 'n':
+        ch = '\n';
+        break;
+    case 'r':
+        ch = '\r';
+        break;
+    case 't':
+        ch = '\t';
+        break;
+    case '\\':
+        ch = '\\';
+        break;
+    case '(':
+        ch = '(';
+        break;
+    case '[':
+        ch = '[';
+        break;
+    case '0':
+        ch = '\0';
+        break;
+    default:
+        WithColor::error() << "unknown espaced symbol '" << *expr << "'";
+        // TODO: add exit
+    }
 }
 
 /// This function looks for new state set, an equivalent of the next DNA state for the edge \p
