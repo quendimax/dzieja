@@ -63,14 +63,43 @@ void NFA::parseRawString(const char *str, tok::TokenKind kind)
 
 void NFA::parseRegex(const char *expr, tok::TokenKind kind)
 {
-    do {
-        auto terminalState = parsePlain(expr, Q0);
-        terminalState->setKind(kind);
-    } while (*expr++ == '|');
-    assert(*--expr == '\0' && "parsing must be ended with zero character");
+    auto *terminalState = parseSequence(expr, Q0);
+    terminalState->setKind(kind);
+
+    assert(*expr == '\0' && "parsing must be ended with zero character");
 }
 
-State *NFA::parseBackslash(const char *&expr, const State *prevState)
+State *NFA::parseSequence(const char *&expr, State *prevState)
+{
+    State *lastState = prevState;
+    SmallVector<State *, 8> lastStates;
+    for (;; ++expr) {
+        switch (*expr) {
+        case '\0':
+            lastStates.push_back(lastState);
+            goto finish;
+        case '|':
+            lastStates.push_back(lastState);
+            lastState = prevState;
+            break;
+        case '\\':
+            lastState = parseBackslash(expr, lastState);
+            break;
+        default: {
+            auto *newState = makeState();
+            lastState->connectTo(newState, *expr);
+            lastState = newState;
+        }
+        }
+    }
+finish:
+    auto *finishState = makeState();
+    for (auto *state : lastStates)
+        state->connectTo(finishState, Edge::Epsilon);
+    return finishState;
+}
+
+State *NFA::parseBackslash(const char *&expr, State *prevState)
 {
     assert(*expr == '\\' && "there is expected backslashed symbol to see");
 
@@ -86,22 +115,33 @@ State *NFA::parseBackslash(const char *&expr, const State *prevState)
     case 't':
         ch = '\t';
         break;
-    case '\\':
-        ch = '\\';
-        break;
-    case '(':
-        ch = '(';
-        break;
-    case '[':
-        ch = '[';
+    case 'v':
+        ch = '\v';
         break;
     case '0':
         ch = '\0';
         break;
-    default:
-        WithColor::error() << "unknown espaced symbol '" << *expr << "'";
-        // TODO: add exit
+    case '\\':
+    case '(':
+    case '[':
+    case '-':
+    case '^':
+    case '|':
+    case '+':
+    case '*':
+        ch = *expr;
+        break;
+    default: {
+        SmallString<40> errorMsg;
+        errorMsg += "unsupported escaped character '\\";
+        errorMsg += *expr;
+        errorMsg += "'";
+        llvm::report_fatal_error(errorMsg);
     }
+    }
+    auto *state = makeState();
+    prevState->connectTo(state, ch);
+    return state;
 }
 
 /// This function looks for new state set, an equivalent of the next DNA state for the edge \p

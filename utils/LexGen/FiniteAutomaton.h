@@ -149,12 +149,12 @@ public:
     void parseRegex(const char *regex, tok::TokenKind kind);
 
 private:
-    State *parsePlain(const char *&expr, const State *prevState);
-    State *parseBackslash(const char *&expr, const State *prevState);
-    State *parseParen(const char *&expr, const State *prevState);
-    State *parseSquare(const char *&expr, const State *prevState);
-    State *parseStar(const char *&expr, const State *prevState);
-    State *parsePlus(const char *&expr, const State *prevState);
+    State *parseSequence(const char *&expr, State *prevState);
+    State *parseBackslash(const char *&expr, State *prevState);
+    State *parseParen(const char *&expr, State *prevState);
+    State *parseSquare(const char *&expr, State *prevState);
+    State *parseStar(const char *&expr, State *prevState);
+    State *parsePlus(const char *&expr, State *prevState);
 
 public:
     /// Builds new NFA instance that meets the DFA requirements.
