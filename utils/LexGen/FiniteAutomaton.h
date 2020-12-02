@@ -25,6 +25,7 @@
 #include <limits>
 #include <memory>
 #include <set>
+#include <utility>
 
 
 namespace dzieja {
@@ -149,12 +150,17 @@ public:
     void parseRegex(const char *regex, tok::TokenKind kind);
 
 private:
-    State *parseSequence(const char *&expr, State *prevState);
-    State *parseBackslash(const char *&expr, State *prevState);
-    State *parseParen(const char *&expr, State *prevState);
-    State *parseSquare(const char *&expr, State *prevState);
-    State *parseStar(const char *&expr, State *prevState);
-    State *parsePlus(const char *&expr, State *prevState);
+    /// Specifies start and last (quasi-terminal) state of the part of an NFA 
+    using SubAutomaton = std::pair<State *, State *>;
+
+    SubAutomaton parseSequence(const char *&expr);
+    SubAutomaton parseSymbol(const char *&expr);
+    SubAutomaton parseParen(const char *&expr);
+    SubAutomaton parseSquare(const char *&expr);
+    SubAutomaton parseQualifier(const char *&expr, SubAutomaton);
+    SubAutomaton parseQuestion(const char *&expr, SubAutomaton);
+    SubAutomaton parseStar(const char *&expr, SubAutomaton);
+    SubAutomaton parsePlus(const char *&expr, SubAutomaton);
 
 public:
     /// Builds new NFA instance that meets the DFA requirements.

@@ -44,17 +44,16 @@ raw_ostream &operator<<(raw_ostream &out, const State &state)
 
 State *NFA::makeState(tok::TokenKind kind)
 {
-    auto newState = new State((StateID)storage.size(), kind);
+    auto *newState = new State((StateID)storage.size(), kind);
     storage.push_back(unique_ptr<State>(newState));
     return storage.back().get();
 }
 
 void NFA::parseRawString(const char *str, tok::TokenKind kind)
 {
-    auto curState = makeState();
-    Q0->connectTo(curState, Edge::Epsilon);
+    auto *curState = Q0;
     for (; *str; str++) {
-        auto newState = makeState();
+        auto *newState = makeState();
         curState->connectTo(newState, *str);
         curState = newState;
     }
@@ -63,85 +62,89 @@ void NFA::parseRawString(const char *str, tok::TokenKind kind)
 
 void NFA::parseRegex(const char *expr, tok::TokenKind kind)
 {
-    auto *terminalState = parseSequence(expr, Q0);
-    terminalState->setKind(kind);
+    SubAutomaton sub = parseSequence(expr);
+    Q0->connectTo(sub.first, Edge::Epsilon);
+    sub.second->setKind(kind);
 
-    assert(*expr == '\0' && "parsing must be ended with zero character");
+    assert(*expr == '\0' && "parsing must be finished with zero character");
 }
 
-State *NFA::parseSequence(const char *&expr, State *prevState)
+NFA::SubAutomaton NFA::parseSequence(const char *&expr)
 {
-    State *lastState = prevState;
+    auto *firstState = makeState();
+    auto *lastState = firstState;
+    SubAutomaton curAutom;
     SmallVector<State *, 8> lastStates;
-    for (;; ++expr) {
+    for (;;) {
         switch (*expr) {
         case '\0':
             lastStates.push_back(lastState);
             goto finish;
         case '|':
             lastStates.push_back(lastState);
-            lastState = prevState;
+            lastState = firstState;
+            ++expr;
+            continue;
+        default:
+            curAutom = parseSymbol(expr);
             break;
-        case '\\':
-            lastState = parseBackslash(expr, lastState);
-            break;
-        default: {
-            auto *newState = makeState();
-            lastState->connectTo(newState, *expr);
-            lastState = newState;
         }
-        }
+        curAutom = parseQualifier(expr, curAutom);
+        lastState->connectTo(curAutom.first, Edge::Epsilon);
+        lastState = curAutom.second;
     }
 finish:
     auto *finishState = makeState();
     for (auto *state : lastStates)
         state->connectTo(finishState, Edge::Epsilon);
-    return finishState;
+    return {firstState, finishState};
 }
 
-State *NFA::parseBackslash(const char *&expr, State *prevState)
+NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
 {
-    assert(*expr == '\\' && "there is expected backslashed symbol to see");
+    char c = *expr;
+    if (*expr == '\\') {
+        ++expr;
+        switch (*expr) {
+        case 'n':
+            c = '\n';
+            break;
+        case 'r':
+            c = '\r';
+            break;
+        case 't':
+            c = '\t';
+            break;
+        case 'v':
+            c = '\v';
+            break;
+        case '0':
+            c = '\0';
+            break;
+        // clang-format off
+        case '(': case ')': case '[': case ']': case '-': case '\\':
+        case '^': case '|': case '+': case '*': case '?':
+            c = *expr;
+            break;
+        // clang-format on
+        default:
+            SmallString<40> errorMsg;
+            errorMsg += "unsupported escaped character '\\";
+            errorMsg += *expr;
+            errorMsg += "'";
+            llvm::report_fatal_error(errorMsg);
+        }
+    }
+    auto *first = makeState();
+    auto *last = makeState();
+    first->connectTo(last, c);
+    ++expr; // set the pointor to the next symbol after the processed one
+    return {first, last};
+}
 
-    ++expr;
-    char ch;
-    switch (*expr) {
-    case 'n':
-        ch = '\n';
-        break;
-    case 'r':
-        ch = '\r';
-        break;
-    case 't':
-        ch = '\t';
-        break;
-    case 'v':
-        ch = '\v';
-        break;
-    case '0':
-        ch = '\0';
-        break;
-    case '\\':
-    case '(':
-    case '[':
-    case '-':
-    case '^':
-    case '|':
-    case '+':
-    case '*':
-        ch = *expr;
-        break;
-    default: {
-        SmallString<40> errorMsg;
-        errorMsg += "unsupported escaped character '\\";
-        errorMsg += *expr;
-        errorMsg += "'";
-        llvm::report_fatal_error(errorMsg);
-    }
-    }
-    auto *state = makeState();
-    prevState->connectTo(state, ch);
-    return state;
+NFA::SubAutomaton NFA::parseQualifier(const char *&expr, SubAutomaton autom)
+{
+    return autom;
 }
 
 /// This function looks for new state set, an equivalent of the next DNA state for the edge \p
@@ -290,7 +293,7 @@ void NFA::printTransitiveTable(const TransitiveTable &table, raw_ostream &out, i
 
     const char *typeStr = getTypeBySize(table.size());
     out << indention << "static const " << typeStr;
-    out << " TransitiveTable[" << table.size() << "][" << TransTableRowSize << "] = {\n";
+    out << " const TransitiveTable[" << table.size() << "][" << TransTableRowSize << "] = {\n";
     for (size_t i = 0; i < table.size(); i++) {
         const auto &row = table[i];
         out << indention << "    {";
@@ -307,7 +310,8 @@ void NFA::printKindTable(raw_ostream &out, int indent) const
     for (int i = 0; i < indent; i++)
         indention += ' ';
 
-    out << indention << "static const unsigned short KindTable[" << storage.size() << "] = {\n";
+    out << indention << "static const unsigned short const KindTable[";
+    out << storage.size() << "] = {\n";
     out << indention << "    ";
     for (size_t i = 0; i < storage.size(); i++) {
         const auto *state = storage[i].get();
