@@ -150,17 +150,18 @@ public:
     void parseRegex(const char *regex, tok::TokenKind kind);
 
 private:
-    /// Specifies start and last (quasi-terminal) state of the part of an NFA 
+    /// Specifies start and last (quasi-terminal) state of the part of an NFA
     using SubAutomaton = std::pair<State *, State *>;
 
     SubAutomaton parseSequence(const char *&expr);
     SubAutomaton parseSymbol(const char *&expr);
-    SubAutomaton parseParen(const char *&expr);
     SubAutomaton parseSquare(const char *&expr);
     SubAutomaton parseQualifier(const char *&expr, SubAutomaton);
     SubAutomaton parseQuestion(const char *&expr, SubAutomaton);
     SubAutomaton parseStar(const char *&expr, SubAutomaton);
     SubAutomaton parsePlus(const char *&expr, SubAutomaton);
+
+    SubAutomaton cloneSubAutomaton(SubAutomaton autom);
 
 public:
     /// Builds new NFA instance that meets the DFA requirements.

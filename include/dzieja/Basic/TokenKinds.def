@@ -53,6 +53,18 @@ KEYWORD(type)
 // TOKEN_REGEX(test5, "||")
 // TOKEN_REGEX(test6, "")
 
+// TOKEN_REGEX(test7, "a(bc)d")
+// TOKEN_REGEX(test8, "a(b|c|)d")
+// TOKEN_REGEX(test9, "a(||)d")
+// TOKEN_REGEX(test10, "(()(()")
+
+// TOKEN_REGEX(test11, "a?b")
+// TOKEN_REGEX(test12, "ab?c")
+// TOKEN_REGEX(test13, "(ab)?c")
+// TOKEN_REGEX(test14, "a*b")
+// TOKEN_REGEX(test15, "ab*c")
+// TOKEN_REGEX(test16, "(ab)*c")
+
 PUNCTUATOR(l_brace, "{")
 PUNCTUATOR(r_brace, "}")
 PUNCTUATOR(l_paren, "(")

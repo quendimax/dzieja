@@ -85,6 +85,13 @@ NFA::SubAutomaton NFA::parseSequence(const char *&expr)
             lastState = firstState;
             ++expr;
             continue;
+        case '(':
+            curAutom = parseSequence(++expr);
+            break;
+        case ')':
+            lastStates.push_back(lastState);
+            ++expr;
+            goto finish;
         default:
             curAutom = parseSymbol(expr);
             break;
@@ -143,6 +150,50 @@ NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
 }
 
 NFA::SubAutomaton NFA::parseQualifier(const char *&expr, SubAutomaton autom)
+{
+    switch (*expr) {
+    case '?':
+        autom = parseQuestion(expr, autom);
+        break;
+    case '*':
+        autom = parseStar(expr, autom);
+        break;
+    case '+':
+        autom = parsePlus(expr, autom);
+        break;
+    default:
+        return autom;
+    }
+    if (*expr == '?' || *expr == '*' || *expr == '+')
+        llvm::report_fatal_error("qualifier mustn't be after another qualifier");
+    return autom;
+}
+
+NFA::SubAutomaton NFA::parseQuestion(const char *&expr, SubAutomaton autom)
+{
+    autom.first->connectTo(autom.second, Edge::Epsilon);
+    ++expr;
+    return autom;
+}
+
+NFA::SubAutomaton NFA::parseStar(const char *&expr, SubAutomaton autom)
+{
+    auto *startState = makeState();
+    auto *lastState = makeState();
+    startState->connectTo(lastState, Edge::Epsilon);
+    autom.second->connectTo(lastState, Edge::Epsilon);
+    lastState->connectTo(autom.first, Edge::Epsilon);
+    ++expr;
+    return {startState, lastState};
+}
+
+NFA::SubAutomaton NFA::parsePlus(const char *&expr, SubAutomaton autom)
+{
+    ++expr;
+    return autom;
+}
+
+NFA::SubAutomaton NFA::cloneSubAutomaton(SubAutomaton autom)
 {
     return autom;
 }
