@@ -1,13 +1,12 @@
 #include "FiniteAutomaton.h"
 
+#include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/Support/WithColor.h>
 #include <llvm/Support/raw_ostream.h>
 
-#include <cassert>
 #include <map>
-#include <memory>
 
 
 using namespace llvm;
@@ -199,13 +198,37 @@ NFA::SubAutomaton NFA::parseStar(const char *&expr, SubAutomaton autom)
 
 NFA::SubAutomaton NFA::parsePlus(const char *&expr, SubAutomaton autom)
 {
-    ++expr;
-    return autom;
+    auto copyAutom = cloneSubAutomaton(autom);
+    auto starAutom = parseStar(expr, copyAutom); // this method's already advanced expr
+    starAutom.second->connectTo(copyAutom.first, Edge::Epsilon);
+    return {starAutom.first, copyAutom.second};
 }
 
 NFA::SubAutomaton NFA::cloneSubAutomaton(SubAutomaton autom)
 {
-    return autom;
+    DenseMap<const State *, State *> map;
+    auto rec = [&map, this](const State *state) {
+        auto recImpl = [&map, this](const State *state, auto &recRef) {
+            if (map.find(state) != map.end())
+                return;
+            auto *newState = makeState();
+            map[state] = newState;
+            for (auto &edge : state->getEdges())
+                recRef(edge.getTarget(), recRef);
+        };
+        recImpl(state, recImpl);
+    };
+    rec(autom.first);
+
+    for (auto &item : map) {
+        auto *origState = item.first;
+        auto *newState = item.second;
+        for (auto &edge : origState->getEdges()) {
+            auto *newTargetState = map[edge.getTarget()];
+            newState->connectTo(newTargetState, edge.getSymbol());
+        }
+    }
+    return {map[autom.first], map[autom.second]};
 }
 
 /// This function looks for new state set, an equivalent of the next DNA state for the edge \p
@@ -226,7 +249,7 @@ static StateSet findDFAState(const StateSet &states, Symbol symbol)
 
 NFA NFA::buildDFA() const
 {
-    map<const StateSet, State *> convTable;
+    std::map<const StateSet, State *> convTable;
     NFA dfa;
     dfa.storage.pop_back(); // by default NFA contains the start state, but here we don't need it
     StateSet setQ0 = getStartState()->getEspClosure();
