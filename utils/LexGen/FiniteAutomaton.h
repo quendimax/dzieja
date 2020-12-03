@@ -37,6 +37,8 @@ using StateID = unsigned int;
 /// it is enough 8 bits for a symbols, but to express \c Epsilon, we use \c int.
 using Symbol = unsigned int;
 
+enum : Symbol { Epsilon = std::numeric_limits<Symbol>::max() };
+
 using StateSet = std::set<const State *>;
 
 
@@ -45,8 +47,6 @@ class Edge {
     Symbol symbol;
 
 public:
-    enum : Symbol { Epsilon = std::numeric_limits<Symbol>::max() };
-
     Edge(Symbol symbol, const State *target = nullptr) : target(target), symbol(symbol)
     {
         assert((symbol == (0x7f & symbol) || symbol == Epsilon)

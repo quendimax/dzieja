@@ -23,7 +23,7 @@ StateSet State::getEspClosure() const
                 return;
             closure.insert(state);
             for (const Edge &edge : state->getEdges())
-                if (edge.getSymbol() == Edge::Epsilon)
+                if (edge.getSymbol() == Epsilon)
                     finderRef(edge.getTarget(), finderRef);
         };
         finderImpl(state, finderImpl);
@@ -62,7 +62,7 @@ void NFA::parseRawString(const char *str, tok::TokenKind kind)
 void NFA::parseRegex(const char *expr, tok::TokenKind kind)
 {
     SubAutomaton sub = parseSequence(expr);
-    Q0->connectTo(sub.first, Edge::Epsilon);
+    Q0->connectTo(sub.first, Epsilon);
     sub.second->setKind(kind);
     if (*expr == ')')
         llvm::report_fatal_error("unexpected close paren ')' without previous open one");
@@ -95,13 +95,13 @@ NFA::SubAutomaton NFA::parseSequence(const char *&expr)
             break;
         }
         curAutom = parseQualifier(expr, curAutom);
-        lastState->connectTo(curAutom.first, Edge::Epsilon);
+        lastState->connectTo(curAutom.first, Epsilon);
         lastState = curAutom.second;
     }
 finish:
     auto *finishState = makeState();
     for (auto *state : lastStates)
-        state->connectTo(finishState, Edge::Epsilon);
+        state->connectTo(finishState, Epsilon);
     return {firstState, finishState};
 }
 
@@ -180,7 +180,7 @@ NFA::SubAutomaton NFA::parseQualifier(const char *&expr, SubAutomaton autom)
 
 NFA::SubAutomaton NFA::parseQuestion(const char *&expr, SubAutomaton autom)
 {
-    autom.first->connectTo(autom.second, Edge::Epsilon);
+    autom.first->connectTo(autom.second, Epsilon);
     ++expr;
     return autom;
 }
@@ -189,9 +189,9 @@ NFA::SubAutomaton NFA::parseStar(const char *&expr, SubAutomaton autom)
 {
     auto *startState = makeState();
     auto *lastState = makeState();
-    startState->connectTo(lastState, Edge::Epsilon);
-    autom.second->connectTo(lastState, Edge::Epsilon);
-    lastState->connectTo(autom.first, Edge::Epsilon);
+    startState->connectTo(lastState, Epsilon);
+    autom.second->connectTo(lastState, Epsilon);
+    lastState->connectTo(autom.first, Epsilon);
     ++expr;
     return {startState, lastState};
 }
@@ -200,7 +200,7 @@ NFA::SubAutomaton NFA::parsePlus(const char *&expr, SubAutomaton autom)
 {
     auto copyAutom = cloneSubAutomaton(autom);
     auto starAutom = parseStar(expr, copyAutom); // this method's already advanced expr
-    starAutom.second->connectTo(copyAutom.first, Edge::Epsilon);
+    starAutom.second->connectTo(copyAutom.first, Epsilon);
     return {starAutom.first, copyAutom.second};
 }
 
