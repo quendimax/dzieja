@@ -155,6 +155,7 @@ private:
 
     SubAutomaton parseSequence(const char *&expr);
     SubAutomaton parseSymbol(const char *&expr);
+    SubAutomaton parseParen(const char *&expr);
     SubAutomaton parseSquare(const char *&expr);
     SubAutomaton parseQualifier(const char *&expr, SubAutomaton);
     SubAutomaton parseQuestion(const char *&expr, SubAutomaton);

@@ -65,6 +65,8 @@ void NFA::parseRegex(const char *expr, tok::TokenKind kind)
     SubAutomaton sub = parseSequence(expr);
     Q0->connectTo(sub.first, Edge::Epsilon);
     sub.second->setKind(kind);
+    if (*expr == ')')
+        llvm::report_fatal_error("unexpected close paren ')' without previous open one");
 
     assert(*expr == '\0' && "parsing must be finished with zero character");
 }
@@ -78,6 +80,7 @@ NFA::SubAutomaton NFA::parseSequence(const char *&expr)
     for (;;) {
         switch (*expr) {
         case '\0':
+        case ')':
             lastStates.push_back(lastState);
             goto finish;
         case '|':
@@ -86,12 +89,8 @@ NFA::SubAutomaton NFA::parseSequence(const char *&expr)
             ++expr;
             continue;
         case '(':
-            curAutom = parseSequence(++expr);
+            curAutom = parseParen(expr);
             break;
-        case ')':
-            lastStates.push_back(lastState);
-            ++expr;
-            goto finish;
         default:
             curAutom = parseSymbol(expr);
             break;
@@ -147,6 +146,17 @@ NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
     first->connectTo(last, c);
     ++expr; // set the pointor to the next symbol after the processed one
     return {first, last};
+}
+
+NFA::SubAutomaton NFA::parseParen(const char *&expr)
+{
+    assert(*expr == '(' && "open paren '(' is exptected");
+    ++expr;
+    auto autom = parseSequence(expr);
+    if (*expr != ')')
+        llvm::report_fatal_error("close paren ')' is expected!");
+    ++expr;
+    return autom;
 }
 
 NFA::SubAutomaton NFA::parseQualifier(const char *&expr, SubAutomaton autom)
@@ -294,12 +304,15 @@ void NFA::print(raw_ostream &out) const
     for (const auto &state : storage) {
         out << *state << "\n";
         for (const auto &edge : state->getEdges()) {
-            out << " |- ";
-            if (edge.isEpsilon())
+            out << " |- '";
+            if (edge.isEpsilon()) {
                 out << "Eps";
-            else
-                out << (char)edge.getSymbol();
-            out << " - " << *edge.getTarget() << "\n";
+            }
+            else {
+                char c = edge.getSymbol();
+                out.write_escaped(StringRef(&c, 1));
+            }
+            out << "' - " << *edge.getTarget() << "\n";
         }
     }
 }
