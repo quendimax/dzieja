@@ -148,8 +148,8 @@ char NFA::parseSymbolCodePoint(const char *&expr)
         // clang-format on
         default:
             auto &err = error();
-            err << "unsupported escaped character '\\";
-            err.write_escaped(StringRef(expr, 1)) << "'";
+            err << "unsupported escaped character '";
+            err.write_escaped(StringRef(expr, 1), true) << "'";
             std::exit(1);
         }
     }
@@ -406,7 +406,7 @@ void NFA::print(raw_ostream &out) const
             }
             else {
                 char c = edge.getSymbol();
-                out.write_escaped(StringRef(&c, 1));
+                out.write_escaped(StringRef(&c, 1), true);
             }
             out << "' - " << *edge.getTarget() << "\n";
         }
