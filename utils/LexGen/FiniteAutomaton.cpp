@@ -1,5 +1,6 @@
 #include "FiniteAutomaton.h"
 
+#include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallString.h>
@@ -192,14 +193,18 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
     assert(*expr == '[' && "open paren '[' is exptected");
     ++expr;
 
-    auto *firstState = makeState();
-    auto *lastState = makeState();
+    const bool isNegative = *expr == '^' ? true : false;
+    llvm::BitVector symbols; // marks if an element must be include in the range of chars
+    symbols.resize(128, isNegative);
+
     for (;;) {
-        if (*expr == ']')
+        if (*expr == ']') {
+            ++expr;
             break;
+        }
 
         unsigned char firstChar = parseSymbolCodePoint(expr);
-        firstState->connectTo(lastState, (Symbol)firstChar);
+        symbols[firstChar] = !isNegative;
 
         if (*expr == '-') {
             ++expr;
@@ -212,11 +217,15 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
                 std::exit(1);
             }
             for (Symbol c = firstChar; c <= secondChar; c++)
-                firstState->connectTo(lastState, c);
+                symbols[c] = !isNegative;
         }
     }
 
-    ++expr;
+    auto *firstState = makeState();
+    auto *lastState = makeState();
+    for (unsigned char c = 0; c < 128; c++)
+        if (symbols[c])
+            firstState->connectTo(lastState, (Symbol)c);
     return {firstState, lastState};
 }
 
