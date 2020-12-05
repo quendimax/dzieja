@@ -14,6 +14,11 @@ using namespace std;
 
 namespace dzieja {
 
+static auto &error()
+{
+    return WithColor::error(llvm::errs(), "dzieja-lexgen");
+}
+
 StateSet State::getEspClosure() const
 {
     StateSet closure;
@@ -64,9 +69,10 @@ void NFA::parseRegex(const char *expr, tok::TokenKind kind)
     SubAutomaton sub = parseSequence(expr);
     Q0->connectTo(sub.first, Epsilon);
     sub.second->setKind(kind);
-    if (*expr == ')')
-        llvm::report_fatal_error("unexpected close paren ')' without previous open one");
-
+    if (*expr == ')') {
+        error() << "unexpected close paren ')' without previous open one";
+        std::exit(1);
+    }
     assert(*expr == '\0' && "parsing must be finished with zero character");
 }
 
@@ -90,6 +96,9 @@ NFA::SubAutomaton NFA::parseSequence(const char *&expr)
         case '(':
             curAutom = parseParen(expr);
             break;
+        case '[':
+            curAutom = parseSquare(expr);
+            break;
         default:
             curAutom = parseSymbol(expr);
             break;
@@ -105,8 +114,12 @@ finish:
     return {firstState, finishState};
 }
 
-NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
+char NFA::parseSymbolCodePoint(const char *&expr)
 {
+    if (*expr & 0x80) {
+        error() << "non ASCII characters are not supported";
+        std::exit(1);
+    }
     char c = *expr;
     if (*expr == '\\') {
         ++expr;
@@ -133,18 +146,32 @@ NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
             break;
         // clang-format on
         default:
-            SmallString<40> errorMsg;
-            errorMsg += "unsupported escaped character '\\";
-            errorMsg += *expr;
-            errorMsg += "'";
-            llvm::report_fatal_error(errorMsg);
+            auto &err = error();
+            err << "unsupported escaped character '\\";
+            err.write_escaped(StringRef(expr, 1)) << "'";
+            std::exit(1);
         }
     }
+    ++expr;
+    return c;
+}
+
+NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
+{
+    char c = parseSymbolCodePoint(expr);
     auto *first = makeState();
     auto *last = makeState();
     first->connectTo(last, c);
-    ++expr; // set the pointor to the next symbol after the processed one
     return {first, last};
+}
+
+NFA::SubAutomaton NFA::parseSquareSymbol(const char *&expr)
+{
+    if (*expr == '-') {
+        error() << "'-' character can lay in square brackets between two characters only";
+        std::exit(1);
+    }
+    return parseSymbol(expr);
 }
 
 NFA::SubAutomaton NFA::parseParen(const char *&expr)
@@ -152,10 +179,45 @@ NFA::SubAutomaton NFA::parseParen(const char *&expr)
     assert(*expr == '(' && "open paren '(' is exptected");
     ++expr;
     auto autom = parseSequence(expr);
-    if (*expr != ')')
-        llvm::report_fatal_error("close paren ')' is expected!");
+    if (*expr != ')') {
+        error() << "close paren ')' is expected!";
+        std::exit(1);
+    }
     ++expr;
     return autom;
+}
+
+NFA::SubAutomaton NFA::parseSquare(const char *&expr)
+{
+    assert(*expr == '[' && "open paren '[' is exptected");
+    ++expr;
+
+    auto *firstState = makeState();
+    auto *lastState = makeState();
+    for (;;) {
+        if (*expr == ']')
+            break;
+
+        unsigned char firstChar = parseSymbolCodePoint(expr);
+        firstState->connectTo(lastState, (Symbol)firstChar);
+
+        if (*expr == '-') {
+            ++expr;
+            unsigned char secondChar = parseSymbolCodePoint(expr);
+            if (secondChar < firstChar) {
+                auto &err = error();
+                err << "character range in [";
+                err.write_escaped(StringRef((char *)&firstChar, 1), true) << "-";
+                err.write_escaped(StringRef((char *)&secondChar, 1), true) << "] is incorrect";
+                std::exit(1);
+            }
+            for (Symbol c = firstChar; c <= secondChar; c++)
+                firstState->connectTo(lastState, c);
+        }
+    }
+
+    ++expr;
+    return {firstState, lastState};
 }
 
 NFA::SubAutomaton NFA::parseQualifier(const char *&expr, SubAutomaton autom)
@@ -173,8 +235,10 @@ NFA::SubAutomaton NFA::parseQualifier(const char *&expr, SubAutomaton autom)
     default:
         return autom;
     }
-    if (*expr == '?' || *expr == '*' || *expr == '+')
-        llvm::report_fatal_error("qualifier mustn't be after another qualifier");
+    if (*expr == '?' || *expr == '*' || *expr == '+') {
+        error() << "qualifier mustn't be after another qualifier";
+        std::exit(1);
+    }
     return autom;
 }
 
