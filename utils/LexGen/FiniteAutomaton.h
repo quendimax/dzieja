@@ -144,9 +144,42 @@ public:
     /// where [4] is terminal state.
     void parseRawString(const char *str, tok::TokenKind kind);
 
-    /// Builds an NFE-graph from the regular excpression subset.
+    /// Builds an NFA-graph from the regular excpression subset.
     ///
+    /// Now the regex subset supports ASCII symbols only and the following syntax features:
     ///
+    /// \par Escaped characters
+    /// The next escaped characters are supported:
+    /// - \c \\n - Line Feed, New Line
+    /// - \c \\r - Carriage Return
+    /// - \c \\t - Horizontal Tabular
+    /// - \c \\v - Vertical Tabular
+    /// - \c \\0 - Null
+    /// - \c \\] - it makes sense only inside square brackets.
+    /// - \c (, \c ), \c [, \c -, \c \\, \c |, \c ^, \c +, \c *, \c ?
+    ///
+    /// \par Sequence of Characters
+    /// Characters laying in line outlines chain of state with corresponding edges. The splitting
+    /// symbol \c | divides the regular expression into two parts, and either provides a matching
+    /// sequence to terminal state.
+    ///
+    /// \par Parenthesis Expression
+    /// Character sequence inside parentheses is considered as a separate regex. It means that
+    /// following qualifiers will affecte to oll that sub-regex, but not to the last character.
+    ///
+    /// \par Square Brackets
+    /// Characters between [ and ] specifies that on the current position can be any of the listed
+    /// symbols. There you can specify range with \c - symbol between the first and the last symbols
+    /// in the range.
+    ///
+    /// If just after open [ the \c ^ character is set, it means that range of allowed charactes is
+    /// inverted, i.e. every character except of listed ones.
+    ///
+    /// \par Qualifiers
+    /// Only three qualifiers are supported: \c ?, \c *, \c +.
+    /// \c ? says that previous sub-regex can be present once in the analysing sequence or never.
+    /// \c * says that previous sub-regex can be present any number of times including zero.
+    /// \c + syas that previous sub-regex can be present at least once and more times.
     void parseRegex(const char *regex, tok::TokenKind kind);
 
 private:
