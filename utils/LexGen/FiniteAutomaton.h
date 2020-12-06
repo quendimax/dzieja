@@ -88,10 +88,10 @@ public:
     StateSet getEspClosure() const;
 
     /// Returns only the first found state, or \c nullptr otherwise.
-    const State *findBySymbol(Symbol symbol) const;
+    const State *findFollowedInSymbol(Symbol symbol) const;
 
     /// Returns only the first found state, or \c nullptr otherwise.
-    const State *findBySymbol(char c) const { return findBySymbol((Symbol)(unsigned char)c); }
+    const State *findFollowedInSymbol(char c) const;
 
 private:
     State(const State &) = delete;
