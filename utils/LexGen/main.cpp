@@ -33,9 +33,15 @@ int main(int argc, char *argv[])
 
     NFA dfa = nfa.buildDFA();
 
+    llvm::outs() << nfa.getNumStates();
+    llvm::outs() << "\n";
     nfa.print(llvm::outs());
     llvm::outs() << "\n";
+    llvm::outs() << dfa.getNumStates();
+    llvm::outs() << "\n";
     dfa.print(llvm::outs());
+    llvm::outs() << "\n";
+    NFA minDfa = dfa.buildMinimizedDFA();
 
     if (!dfa.generateCppImpl(Output.c_str(), GenMode))
         return 1;

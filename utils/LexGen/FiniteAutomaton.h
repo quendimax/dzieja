@@ -37,7 +37,7 @@ using StateID = unsigned int;
 /// it is enough 8 bits for a symbols, but to express \c Epsilon, we use \c int.
 using Symbol = unsigned int;
 
-enum : Symbol { Epsilon = std::numeric_limits<Symbol>::max() };
+constexpr Symbol Epsilon = std::numeric_limits<Symbol>::max();
 
 using StateSet = std::set<const State *>;
 
@@ -86,6 +86,12 @@ public:
     void connectTo(const State *state, Symbol symbol) { edges.push_back(Edge(symbol, state)); }
     void connectTo(const State *state, char symbol) { edges.push_back(Edge(symbol, state)); }
     StateSet getEspClosure() const;
+
+    /// Returns only the first found state, or \c nullptr otherwise.
+    const State *findBySymbol(Symbol symbol) const;
+
+    /// Returns only the first found state, or \c nullptr otherwise.
+    const State *findBySymbol(char c) const { return findBySymbol((Symbol)(unsigned char)c); }
 
 private:
     State(const State &) = delete;
@@ -205,6 +211,9 @@ public:
     /// Every state of new DNA can't have edges with indentical symbols.
     NFA buildDFA() const;
 
+    /// Builds new NFA instance that meets the minimized DFA requirements.
+    NFA buildMinimizedDFA() const;
+
     /// Generates '\p filename' source file which contains transitive funciton and terminal
     /// function in order to pass through the \c NFA.
     bool generateCppImpl(llvm::StringRef filename, GeneratingMode mode) const;
@@ -216,6 +225,9 @@ private:
     NFA &operator=(const NFA &) = delete;
 
     State *makeState(tok::TokenKind kind = tok::unknown);
+
+    /// Builds equivalent table for DFA only!
+    llvm::SmallVector<llvm::SmallVector<bool, 0>, 0> buildEquivalentTable() const;
 
     enum { TransTableRowSize = 128 }; // now ASCII char is supported only
     using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;

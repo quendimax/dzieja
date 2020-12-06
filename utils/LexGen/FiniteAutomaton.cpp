@@ -38,6 +38,15 @@ StateSet State::getEspClosure() const
     return closure;
 }
 
+const State *State::findBySymbol(Symbol symbol) const
+{
+    for (const auto &edge : edges) {
+        if (edge.getSymbol() == symbol)
+            return edge.getTarget();
+    }
+    return nullptr;
+}
+
 raw_ostream &operator<<(raw_ostream &out, const State &state)
 {
     out << "State";
@@ -45,13 +54,6 @@ raw_ostream &operator<<(raw_ostream &out, const State &state)
     out << state.getID();
     out << (state.isTerminal() ? "]" : ")");
     return out;
-}
-
-State *NFA::makeState(tok::TokenKind kind)
-{
-    auto *newState = new State((StateID)storage.size(), kind);
-    storage.push_back(unique_ptr<State>(newState));
-    return storage.back().get();
 }
 
 void NFA::parseRawString(const char *str, tok::TokenKind kind)
@@ -365,6 +367,20 @@ NFA NFA::buildDFA() const
     return dfa;
 }
 
+NFA NFA::buildMinimizedDFA() const
+{
+    if (!isDFA) {
+        error() << "can't build minimized DFA from NFA!";
+        std::exit(1);
+    }
+
+
+    NFA minDfa;
+    minDfa.storage.pop_back();
+
+    return minDfa;
+}
+
 bool NFA::generateCppImpl(StringRef filename, NFA::GeneratingMode mode) const
 {
     if (!isDFA) {
@@ -411,6 +427,69 @@ void NFA::print(raw_ostream &out) const
             out << "' - " << *edge.getTarget() << "\n";
         }
     }
+}
+
+State *NFA::makeState(tok::TokenKind kind)
+{
+    auto *newState = new State((StateID)storage.size(), kind);
+    storage.push_back(unique_ptr<State>(newState));
+    return storage.back().get();
+}
+
+SmallVector<SmallVector<bool, 0>, 0> NFA::buildEquivalentTable() const
+{
+    assert(isDFA && "can't make equivalent table for non DFA");
+
+    // equivalent table initialization
+    SmallVector<SmallVector<bool, 0>, 0> equivTable;
+    equivTable.resize(storage.size());
+    for (size_t i = 0, e = storage.size(); i < e; i++)
+        equivTable[i].resize(e, true);
+
+    for (size_t i = 0, e = storage.size(); i < e; i++) {
+        for (size_t j = i + 1; j < e; j++)
+            if (storage[i]->isTerminal() && !storage[j]->isTerminal()
+                || !storage[i]->isTerminal() && storage[j]->isTerminal())
+                equivTable[i][j] = false;
+    }
+
+    const auto areEquivalent = [&equivTable](StateID state1_id, StateID state2_id) {
+        if (state1_id < state2_id)
+            return equivTable[state1_id][state2_id];
+        else if (state1_id > state2_id)
+            return equivTable[state2_id][state1_id];
+        return true;
+    };
+
+    bool isUpdated;
+    do {
+        isUpdated = false;
+        for (size_t i = 0, e = storage.size(); i < e; i++) {
+            for (size_t j = i + 1; j < e; j++) {
+                if (!equivTable[i][j])
+                    continue;
+
+                for (unsigned char c = 0u; c < sizeof(unsigned char); c++) {
+                    auto *nextState1 = storage[i]->findBySymbol((char)c);
+                    auto *nextState2 = storage[j]->findBySymbol((char)c);
+                    if (nextState1 && nextState2
+                        && !areEquivalent(nextState1->getID(), nextState2->getID())) {
+                        equivTable[i][j] = false;
+                        isUpdated = true;
+                    }
+                }
+            }
+        }
+    } while (isUpdated);
+
+#if 0
+    for (size_t i = 0, e = storage.size(); i < e; i++) {
+        for (size_t j = 0; j < e; j++)
+            llvm::outs() << (int)equivTable[i][j] << (j + 1 == e ? "\n" : ", ");
+    }
+#endif
+
+    return equivTable;
 }
 
 NFA::TransitiveTable NFA::buildTransitiveTable() const
