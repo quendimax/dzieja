@@ -381,15 +381,15 @@ NFA NFA::buildMinimizedDFA() const
         std::exit(1);
     }
 
-    auto distinTable = buildEquivalentTable();
+    auto distinTable = buildDistinguishTable(/*distinguishKinds=*/true);
 
     llvm::outs() << "Distiguish table:\n";
     for (size_t i = 0, e = storage.size(); i < e; i++) {
         for (size_t j = 0; j < e; j++)
             if (i < j)
-                llvm::outs() << (int)distinTable[i][j] << (j + 1 == e ? "\n" : ", ");
+                llvm::outs() << (distinTable[i][j] ? "1" : ".") << (j + 1 == e ? "\n" : " ");
             else
-                llvm::outs() << "   " << (j + 1 == e ? "\n" : "");
+                llvm::outs() << "  " << (j + 1 == e ? "\n" : "");
     }
 
     NFA minDfa;
@@ -453,12 +453,12 @@ State *NFA::makeState(tok::TokenKind kind)
     return storage.back().get();
 }
 
-SmallVector<SmallVector<bool, 0>, 0> NFA::buildEquivalentTable() const
+SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) const
 {
     assert(isDFA && "can't make equivalent table for non DFA");
 
     // equivalent table initialization
-    SmallVector<SmallVector<bool, 0>, 0> distinTable;
+    SmallVector<BitVector, 0> distinTable;
     distinTable.resize(storage.size());
     for (size_t i = 0, e = storage.size(); i < e; i++)
         distinTable[i].resize(e, false);
@@ -468,15 +468,18 @@ SmallVector<SmallVector<bool, 0>, 0> NFA::buildEquivalentTable() const
             auto *st1 = storage[i].get();
             auto *st2 = storage[j].get();
             if ((st1->isTerminal() && !st2->isTerminal())
-                || (!st1->isTerminal() && st2->isTerminal()))
+                || (!st1->isTerminal() && st2->isTerminal())) {
                 distinTable[i][j] = true;
-            else if (st1->isTerminal() && st2->isTerminal() && st1->getKind() != st2->getKind())
-                // we need to distinguish key words and identifier for example
-                distinTable[i][j] = true;
+            }
+            else if (distinguishKinds) {
+                if (st1->isTerminal() && st2->isTerminal() && st1->getKind() != st2->getKind())
+                    // we need to distinguish key words and identifier for example
+                    distinTable[i][j] = true;
+            }
         }
     }
 
-    const auto areDistinguishable = [&distinTable](StateID state1_id, StateID state2_id) {
+    const auto areDistinguishable = [&distinTable](StateID state1_id, StateID state2_id) -> bool {
         if (state1_id < state2_id)
             return distinTable[state1_id][state2_id];
         else if (state1_id > state2_id)

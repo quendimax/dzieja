@@ -16,6 +16,7 @@
 
 #include "dzieja/Basic/TokenKinds.h"
 
+#include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
@@ -227,7 +228,7 @@ private:
     State *makeState(tok::TokenKind kind = tok::unknown);
 
     /// Builds equivalent table for DFA only!
-    llvm::SmallVector<llvm::SmallVector<bool, 0>, 0> buildEquivalentTable() const;
+    llvm::SmallVector<llvm::BitVector, 0> buildDistinguishTable(bool distinguishKinds) const;
 
     enum { TransTableRowSize = 128 }; // now ASCII char is supported only
     using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;
