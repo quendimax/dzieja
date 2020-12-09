@@ -480,7 +480,7 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) cons
     }
 
     const auto areDistinguishable = [&distinTable](StateID state1_id, StateID state2_id) -> bool {
-        // the same states are dist-able cause the table's initialize with false by default
+        // the same states are dist-able cause the table's initialized with false by default
         if (state1_id <= state2_id)
             return distinTable[state1_id][state2_id];
         else
