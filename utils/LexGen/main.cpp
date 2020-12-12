@@ -1,6 +1,9 @@
 #include "FiniteAutomaton.h"
 #include "dzieja/Basic/TokenKinds.h"
+
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/Debug.h>
+
 #include <string>
 
 using namespace dzieja;
@@ -16,32 +19,50 @@ static cl::opt<NFA::GeneratingMode>
                        clEnumValN(NFA::GM_Switch, "gen-via-switch",
                                   "Generate the function via switch-case control flow")),
             cl::desc("Specify mode of transitive (delta) function generating"));
+static cl::opt<bool> Verbose("v", "verbose", cl::init(false),
+                             cl::desc("Print some information about a DFA building process"));
 
 static const char *Overview =
     "The program generates an inc-file with functions implementing DFA for\n"
     "lexical analyze of text.\n";
 
-
-int main(int argc, char *argv[])
+NFA buildNFA()
 {
-    cl::ParseCommandLineOptions(argc, argv, Overview);
-
     NFA nfa;
 #define TOKEN(name, str) nfa.parseRawString(str, tok::name);
 #define TOKEN_REGEX(name, regex) nfa.parseRegex(regex, tok::name);
 #include "dzieja/Basic/TokenKinds.def"
 
-    NFA dfa = nfa.buildDFA();
+    if (Verbose)
+        llvm::errs() << "NFA has " << nfa.getNumStates() << " states.\n";
 
-    llvm::outs() << nfa.getNumStates();
-    llvm::outs() << "\n";
-    nfa.print(llvm::outs());
-    llvm::outs() << "\n";
-    llvm::outs() << dfa.getNumStates();
-    llvm::outs() << "\n";
-    dfa.print(llvm::outs());
-    llvm::outs() << "\n";
+#define DEBUG_TYPE "nfa"
+    LLVM_DEBUG(nfa.print(llvm::errs()) << "\n";);
+#undef DEBUG_TYPE
+
+    return nfa;
+}
+
+int main(int argc, char *argv[])
+{
+    cl::ParseCommandLineOptions(argc, argv, Overview);
+
+    NFA nfa = buildNFA();
+    NFA dfa = nfa.buildDFA();
+    if (Verbose)
+        llvm::errs() << "DFA has " << dfa.getNumStates() << " states.\n";
+
+#define DEBUG_TYPE "dfa"
+    LLVM_DEBUG(dfa.print(llvm::errs()) << "\n";);
+#undef DEBUG_TYPE
+
     NFA minDfa = dfa.buildMinimizedDFA();
+    if (Verbose)
+        llvm::errs() << "Minimized DFA has " << minDfa.getNumStates() << " states.\n";
+
+#define DEBUG_TYPE "min-dfa"
+    LLVM_DEBUG(minDfa.print(llvm::errs()) << "\n";);
+#undef DEBUG_TYPE
 
     if (!dfa.generateCppImpl(Output.c_str(), GenMode))
         return 1;

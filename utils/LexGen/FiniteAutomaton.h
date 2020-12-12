@@ -184,9 +184,9 @@ public:
     ///
     /// \par Qualifiers
     /// Only three qualifiers are supported: \c ?, \c *, \c +.
-    /// \c ? says that previous sub-regex can be present once in the analysing sequence or never.
-    /// \c * says that previous sub-regex can be present any number of times including zero.
-    /// \c + syas that previous sub-regex can be present at least once and more times.
+    /// - \c ? says that previous sub-regex can be present once in the analysing sequence or never.
+    /// - \c * says that previous sub-regex can be present any number of times including zero.
+    /// - \c + syas that previous sub-regex can be present at least once and more times.
     void parseRegex(const char *regex, tok::TokenKind kind);
 
 private:
@@ -219,7 +219,7 @@ public:
     /// function in order to pass through the \c NFA.
     bool generateCppImpl(llvm::StringRef filename, GeneratingMode mode) const;
 
-    void print(llvm::raw_ostream &) const;
+    llvm::raw_ostream &print(llvm::raw_ostream &) const;
 
 private:
     NFA(const NFA &) = delete;
@@ -227,8 +227,12 @@ private:
 
     State *makeState(tok::TokenKind kind = tok::unknown);
 
-    /// Builds equivalent table for DFA only!
+    /// Builds distinguishable/equivalent table. It works for DFA only!
     llvm::SmallVector<llvm::BitVector, 0> buildDistinguishTable(bool distinguishKinds) const;
+
+    /// Prints the distinguishable table. It's used as debug information only.
+    void dumpDistinguishTable(const llvm::SmallVector<llvm::BitVector, 0> &distingTable,
+                              llvm::raw_ostream &out) const;
 
     enum { TransTableRowSize = 128 }; // now ASCII char is supported only
     using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;
@@ -243,7 +247,7 @@ private:
     /// Prints transitive function implemented via transitive table.
     void printTransTableFunction(llvm::raw_ostream &, llvm::StringRef end = "") const;
 
-    /// Prints transitive function implemented via transitive table.
+    /// Prints transitive function implemented via switch control flow.
     void printTransSwitchFunction(llvm::raw_ostream &, llvm::StringRef end = "") const;
 
     /// Prints function returning TokenKind of given state.

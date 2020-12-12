@@ -4,6 +4,7 @@
 #include <llvm/ADT/DenseMap.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallString.h>
+#include <llvm/Support/Debug.h>
 #include <llvm/Support/WithColor.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -18,6 +19,16 @@ namespace dzieja {
 static auto &error()
 {
     return WithColor::error(llvm::errs(), "dzieja-lexgen");
+}
+
+static bool areDistinguishable(const SmallVector<BitVector, 0> &table, StateID leftID,
+                               StateID rightID)
+{
+    // the same states are distinguishable cause the table's initialized with false by default
+    if (leftID <= rightID)
+        return table[leftID][rightID];
+    else
+        return table[rightID][leftID];
 }
 
 StateSet State::getEspClosure() const
@@ -124,6 +135,8 @@ finish:
     return {firstState, finishState};
 }
 
+/// Parse a symbol and returns its unicode point. It doesn't create \p SubAutomaton unlike
+/// \p parseSymbol method.
 char NFA::parseSymbolCodePoint(const char *&expr)
 {
     if (*expr & 0x80) {
@@ -313,8 +326,8 @@ NFA::SubAutomaton NFA::cloneSubAutomaton(SubAutomaton autom)
     return {map[autom.first], map[autom.second]};
 }
 
-/// This function looks for new state set, an equivalent of the next DNA state for the edge \p
-/// symbol.
+/// This function looks for new state set, an equivalent of the next DFA state for the edge
+/// \p symbol.
 static StateSet findDFAState(const StateSet &states, Symbol symbol)
 {
     StateSet newStates;
@@ -353,7 +366,7 @@ NFA NFA::buildDFA() const
             }
             convTable[set] = newState;
 
-            SmallSet<Symbol, 8> symbols;
+            SmallSet<Symbol, 1> symbols; // in generated DFA there are many one-edge-states
             for (auto state : set)
                 for (const Edge &edge : state->getEdges())
                     if (!edge.isEpsilon())
@@ -381,19 +394,65 @@ NFA NFA::buildMinimizedDFA() const
         std::exit(1);
     }
 
-    auto distinTable = buildDistinguishTable(/*distinguishKinds=*/true);
+    auto distingTable = buildDistinguishTable(/*distinguishKinds=*/true);
 
-    llvm::outs() << "Distiguish table:\n";
-    for (size_t i = 0, e = storage.size(); i < e; i++) {
-        for (size_t j = 0; j < e; j++)
-            if (i < j)
-                llvm::outs() << (distinTable[i][j] ? "1" : ".") << (j + 1 == e ? "\n" : " ");
-            else
-                llvm::outs() << "  " << (j + 1 == e ? "\n" : "");
-    }
+#define DEBUG_TYPE "disting-table"
+    LLVM_DEBUG(dumpDistinguishTable(distingTable, llvm::errs()));
+#undef DEBUG_TYPE
 
     NFA minDfa;
     minDfa.storage.pop_back();
+
+    // Build groups of states
+    std::map<const State *, State *> old2new;
+    std::map<State *, StateSet> new2old;
+    BitVector checkedStates;
+    checkedStates.resize(storage.size(), false);
+    for (StateID id = 0, e = storage.size(); id < e; id++) {
+        if (checkedStates[id])
+            continue;
+
+        StateSet group;
+        group.insert(storage[id].get());
+        checkedStates[id] = true;
+        for (StateID nextID = 0; nextID < e; nextID++) {
+            if (checkedStates[nextID])
+                continue;
+
+            if (!areDistinguishable(distingTable, id, nextID)) {
+                group.insert(storage[nextID].get());
+                checkedStates[nextID] = true;
+            }
+        }
+
+        State *newState = minDfa.makeState();
+        for (const auto *state : group) {
+            // expected only one kind of all the group
+            if (state->isTerminal())
+                newState->setKind(state->getKind());
+            old2new[state] = newState;
+            new2old[newState] = group;
+        }
+    }
+
+    // Build edges between new states
+    for (auto &item : new2old) {
+        State *newState = item.first;
+        auto &group = item.second;
+
+        BitVector addedSymbols;
+        addedSymbols.resize(256, false);
+        for (const auto *oldState : group) {
+            for (const auto &edge : oldState->getEdges()) {
+                if (addedSymbols[edge.getSymbol()])
+                    break;
+
+                const State *target = old2new[edge.getTarget()];
+                newState->connectTo(target, edge.getSymbol());
+                addedSymbols[edge.getSymbol()] = true;
+            }
+        }
+    }
 
     return minDfa;
 }
@@ -401,17 +460,17 @@ NFA NFA::buildMinimizedDFA() const
 bool NFA::generateCppImpl(StringRef filename, NFA::GeneratingMode mode) const
 {
     if (!isDFA) {
-        WithColor::error() << "you are trying generate trasitive table for non DNA";
+        error() << "you are trying generate trasitive table for non DFA";
         return false;
     }
     if (storage.size() > std::numeric_limits<unsigned short>::max()) {
-        WithColor::error() << "number of state is too big for `unsigned short` cell of table";
+        error() << "number of states is too big for `unsigned short` cell of table";
         return false;
     }
     error_code EC;
     raw_fd_ostream out(filename, EC);
     if (EC) {
-        WithColor::error() << EC.message() << "\n";
+        error() << EC.message() << "\n";
         return false;
     }
 
@@ -428,7 +487,7 @@ bool NFA::generateCppImpl(StringRef filename, NFA::GeneratingMode mode) const
     return true;
 }
 
-void NFA::print(raw_ostream &out) const
+raw_ostream &NFA::print(raw_ostream &out) const
 {
     for (const auto &state : storage) {
         out << *state << "\n";
@@ -444,6 +503,7 @@ void NFA::print(raw_ostream &out) const
             out << "' - " << *edge.getTarget() << "\n";
         }
     }
+    return out;
 }
 
 State *NFA::makeState(tok::TokenKind kind)
@@ -479,14 +539,6 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) cons
         }
     }
 
-    const auto areDistinguishable = [&distinTable](StateID state1_id, StateID state2_id) -> bool {
-        // the same states are dist-able cause the table's initialized with false by default
-        if (state1_id <= state2_id)
-            return distinTable[state1_id][state2_id];
-        else
-            return distinTable[state2_id][state1_id];
-    };
-
     bool isUpdated;
     do {
         isUpdated = false;
@@ -502,7 +554,8 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) cons
                         continue;
 
                     if ((nextState1 && !nextState2) || (!nextState1 && nextState2)
-                        || areDistinguishable(nextState1->getID(), nextState2->getID())) {
+                        || areDistinguishable(distinTable, nextState1->getID(),
+                                              nextState2->getID())) {
                         distinTable[i][j] = true;
                         isUpdated = true;
                         break;
@@ -515,9 +568,22 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) cons
     return distinTable;
 }
 
+void NFA::dumpDistinguishTable(const SmallVector<BitVector, 0> &distingTable,
+                               raw_ostream &out) const
+{
+    out << "Distiguish table:\n";
+    for (size_t i = 0, e = storage.size(); i < e; i++) {
+        for (size_t j = 0; j < e; j++)
+            if (i < j)
+                out << (distingTable[i][j] ? "1" : ".") << (j + 1 == e ? "\n" : " ");
+            else
+                out << "  " << (j + 1 == e ? "\n" : "");
+    }
+}
+
 NFA::TransitiveTable NFA::buildTransitiveTable() const
 {
-    assert(isDFA && "It's expected that the NFA meets DNA requirements");
+    assert(isDFA && "It's expected that the NFA meets DFA requirements");
 
     TransitiveTable transTable;
     transTable.resize(storage.size());
@@ -583,7 +649,7 @@ void NFA::printKindTable(raw_ostream &out, int indent) const
     out << indention << "};\n";
 }
 
-void NFA::printHeadComment(raw_ostream &out, llvm::StringRef end) const
+void NFA::printHeadComment(raw_ostream &out, StringRef end) const
 {
     out << "//\n"
            "// This file is automatically generated with the lexgen tool.\n"
@@ -596,13 +662,13 @@ void NFA::printHeadComment(raw_ostream &out, llvm::StringRef end) const
     out << end;
 }
 
-void NFA::printInvalidStateConstant(llvm::raw_ostream &out, llvm::StringRef end) const
+void NFA::printInvalidStateConstant(raw_ostream &out, StringRef end) const
 {
     out << "enum { DFA_InvalidStateID = " << storage.size() << "u };";
     out << end;
 }
 
-void NFA::printTransTableFunction(raw_ostream &out, llvm::StringRef end) const
+void NFA::printTransTableFunction(raw_ostream &out, StringRef end) const
 {
     out << "static inline unsigned DFA_delta(unsigned stateID, char symbol)\n";
     out << "{\n";
@@ -612,7 +678,7 @@ void NFA::printTransTableFunction(raw_ostream &out, llvm::StringRef end) const
     out << "}" << end;
 }
 
-void NFA::printTransSwitchFunction(llvm::raw_ostream &out, llvm::StringRef end) const
+void NFA::printTransSwitchFunction(raw_ostream &out, StringRef end) const
 {
     out << "static inline unsigned short DFA_delta(unsigned stateID, char symbol)\n";
     out << "{\n";
@@ -636,7 +702,7 @@ void NFA::printTransSwitchFunction(llvm::raw_ostream &out, llvm::StringRef end) 
     out << "}" << end;
 }
 
-void NFA::printTerminalFunction(raw_ostream &out, llvm::StringRef end) const
+void NFA::printTerminalFunction(raw_ostream &out, StringRef end) const
 {
     out << "static inline unsigned short DFA_getKind(unsigned stateID)\n";
     out << "{\n";
