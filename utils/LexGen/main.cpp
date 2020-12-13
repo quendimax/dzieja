@@ -19,7 +19,7 @@ static cl::opt<NFA::GeneratingMode>
                        clEnumValN(NFA::GM_Switch, "gen-via-switch",
                                   "Generate the function via switch-case control flow")),
             cl::desc("Specify mode of transitive (delta) function generating"));
-static cl::opt<bool> Verbose("v", "verbose", cl::init(false),
+static cl::opt<bool> Verbose("v", cl::init(false),
                              cl::desc("Print some information about a DFA building process"));
 
 static const char *Overview =

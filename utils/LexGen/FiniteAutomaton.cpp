@@ -404,8 +404,8 @@ NFA NFA::buildMinimizedDFA() const
     minDfa.storage.pop_back();
 
     // Build groups of states
-    std::map<const State *, State *> old2new;
-    std::map<State *, StateSet> new2old;
+    DenseMap<const State *, State *> old2new;
+    DenseMap<State *, StateSet> new2old;
     BitVector checkedStates;
     checkedStates.resize(storage.size(), false);
     for (StateID id = 0, e = storage.size(); id < e; id++) {
@@ -621,7 +621,7 @@ void NFA::printTransitiveTable(const TransitiveTable &table, raw_ostream &out, i
 
     const char *typeStr = getTypeBySize(table.size());
     out << indention << "static const " << typeStr;
-    out << " const TransitiveTable[" << table.size() << "][" << TransTableRowSize << "] = {\n";
+    out << " TransitiveTable[" << table.size() << "][" << TransTableRowSize << "] = {\n";
     for (size_t i = 0; i < table.size(); i++) {
         const auto &row = table[i];
         out << indention << "    {";
@@ -638,7 +638,7 @@ void NFA::printKindTable(raw_ostream &out, int indent) const
     for (int i = 0; i < indent; i++)
         indention += ' ';
 
-    out << indention << "static const unsigned short const KindTable[";
+    out << indention << "static const unsigned short KindTable[";
     out << storage.size() << "] = {\n";
     out << indention << "    ";
     for (size_t i = 0; i < storage.size(); i++) {
@@ -682,7 +682,10 @@ void NFA::printTransSwitchFunction(raw_ostream &out, StringRef end) const
 {
     out << "static inline unsigned short DFA_delta(unsigned stateID, char symbol)\n";
     out << "{\n";
-    out << "    unsigned char usymbol = symbol;\n";
+    out << "    unsigned char usymbol = symbol;\n\n";
+    out << "#pragma warning(push)\n";
+    // disable VS warning about a switch with the only default branch
+    out << "#pragma warning(disable : 4065)\n";
     out << "    switch (stateID) {\n";
     auto transTable = buildTransitiveTable();
     const size_t InvalidID = storage.size();
@@ -699,6 +702,8 @@ void NFA::printTransSwitchFunction(raw_ostream &out, StringRef end) const
     out << "    default:\n";
     out << "        assert(0 && \"Unknown state ID is detected!\");\n";
     out << "    }\n";
+    out << "#pragma warning(pop)\n\n";
+    out << "    return DFA_InvalidStateID;\n";
     out << "}" << end;
 }
 
