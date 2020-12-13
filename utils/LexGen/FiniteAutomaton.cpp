@@ -683,9 +683,11 @@ void NFA::printTransSwitchFunction(raw_ostream &out, StringRef end) const
     out << "static inline unsigned short DFA_delta(unsigned stateID, char symbol)\n";
     out << "{\n";
     out << "    unsigned char usymbol = symbol;\n\n";
+    out << "#ifdef _MSC_VER\n";
     out << "#pragma warning(push)\n";
     // disable VS warning about a switch with the only default branch
     out << "#pragma warning(disable : 4065)\n";
+    out << "#endif\n";
     out << "    switch (stateID) {\n";
     auto transTable = buildTransitiveTable();
     const size_t InvalidID = storage.size();
@@ -702,7 +704,9 @@ void NFA::printTransSwitchFunction(raw_ostream &out, StringRef end) const
     out << "    default:\n";
     out << "        assert(0 && \"Unknown state ID is detected!\");\n";
     out << "    }\n";
-    out << "#pragma warning(pop)\n\n";
+    out << "#ifdef _MSC_VER\n";
+    out << "#pragma warning(pop)\n";
+    out << "#endif\n\n";
     out << "    return DFA_InvalidStateID;\n";
     out << "}" << end;
 }
