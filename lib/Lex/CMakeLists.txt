@@ -1,17 +1,17 @@
-set(LLVM_LINK_COMPONENTS
-    Support
-)
+set(LEX_DFA_FILE "${DZIEJA_BINARY_DIR}/include/dzieja/Basic/LexDFAImpl.inc")
 
-set(DFA_IMPL_FILE "${DZIEJA_BINARY_DIR}/include/dzieja/Basic/LexDFAImpl.inc")
+set(INCLUDE_DIR ${DZIEJA_SOURCE_DIR}/include/dzieja/Lex)
 
-add_llvm_library(dziejaLex
+add_dzieja_library(dziejaLex
+    ${INCLUDE_DIR}/Lexer.h
     Lexer.cpp
-    ${DFA_IMPL_FILE}
+    "${LEX_DFA_FILE}"
+
+    LINK_COMPONENTS Support
 )
 
 add_custom_command(
-    OUTPUT ${DFA_IMPL_FILE}
-    COMMAND dzieja-lexgen -gen-via-switch -o ${DFA_IMPL_FILE}
-    DEPENDS ${DZIEJA_SOURCE_DIR}/include/dzieja/Basic/TokenKinds.def
+    OUTPUT ${LEX_DFA_FILE}
+    COMMAND dzieja-lexgen -gen-via-switch -o "${LEX_DFA_FILE}"
     DEPENDS dzieja-lexgen
 )
