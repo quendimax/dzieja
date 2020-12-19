@@ -37,7 +37,7 @@ NFA buildNFA()
         llvm::errs() << "NFA has " << nfa.getNumStates() << " states.\n";
 
 #define DEBUG_TYPE "nfa"
-    LLVM_DEBUG(nfa.print(llvm::errs()) << "\n";);
+    LLVM_DEBUG(nfa.print(llvm::errs()) << "\n");
 #undef DEBUG_TYPE
 
     return nfa;
@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
         llvm::errs() << "DFA has " << dfa.getNumStates() << " states.\n";
 
 #define DEBUG_TYPE "dfa"
-    LLVM_DEBUG(dfa.print(llvm::errs()) << "\n";);
+    LLVM_DEBUG(dfa.print(llvm::errs()) << "\n");
 #undef DEBUG_TYPE
 
     NFA minDfa = dfa.buildMinimizedDFA();
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
         llvm::errs() << "Minimized DFA has " << minDfa.getNumStates() << " states.\n";
 
 #define DEBUG_TYPE "min-dfa"
-    LLVM_DEBUG(minDfa.print(llvm::errs()) << "\n";);
+    LLVM_DEBUG(minDfa.print(llvm::errs()) << "\n");
 #undef DEBUG_TYPE
 
     if (!dfa.generateCppImpl(Output.c_str(), GenMode))
