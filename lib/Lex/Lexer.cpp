@@ -12,21 +12,21 @@ using namespace llvm;
 
 namespace dzieja {
 
-Lexer::Lexer(const char *BufStart, const char *BufPtr, const char *BufEnd)
-    : BufferStart(BufStart), BufferEnd(BufEnd), BufferPtr(BufPtr)
+Lexer::Lexer(const char *bufferStart, const char *bufferPtr, const char *bufferEnd)
+    : BufferStart(bufferStart), BufferEnd(bufferEnd), BufferPtr(bufferPtr)
 {
-    assert(BufEnd[0] == '\0' && "expected null at the end of the buffer");
+    assert(BufferEnd[0] == '\0' && "expected null at the end of the buffer");
 
     // Check whether we have a UTF-8 BOM in the beginning of the buffer
     if (BufferStart == BufferPtr) {
-        StringRef Buffer(BufferStart, BufferEnd - BufferStart);
-        if (Buffer.startswith("\xEF\xBB\xBF"))
+        StringRef buffer(BufferStart, BufferEnd - BufferStart);
+        if (buffer.startswith("\xEF\xBB\xBF"))
             BufferStart += 3;
     }
 }
 
-Lexer::Lexer(const MemoryBuffer *InputFile)
-    : Lexer(InputFile->getBufferStart(), InputFile->getBufferStart(), InputFile->getBufferEnd())
+Lexer::Lexer(const MemoryBuffer *inputFile)
+    : Lexer(inputFile->getBufferStart(), inputFile->getBufferStart(), inputFile->getBufferEnd())
 {
 }
 
@@ -35,6 +35,6 @@ Lexer::Lexer(const MemoryBuffer *InputFile)
 // This file is generated with the dzieja-lexgen util from the dzieja/Basic/TokenKinds.def source.
 #include "dzieja/Basic/LexDFAImpl.inc"
 
-void Lexer::Lex(Token &Result) {}
+void Lexer::lex(Token &result) {}
 
 } // namespace dzieja

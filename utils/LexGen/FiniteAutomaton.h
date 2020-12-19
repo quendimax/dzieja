@@ -44,11 +44,11 @@ using StateSet = std::set<const State *>;
 
 
 class Edge {
-    const State *target;
-    Symbol symbol;
+    const State *Target;
+    Symbol Sym;
 
 public:
-    Edge(Symbol symbol, const State *target = nullptr) : target(target), symbol(symbol)
+    Edge(Symbol symbol, const State *target = nullptr) : Target(target), Sym(symbol)
     {
         assert((symbol == (0x7f & symbol) || symbol == Epsilon)
                && "the symbol must be either an ASCII character or the Epsilon");
@@ -59,9 +59,9 @@ public:
     {
     }
 
-    bool isEpsilon() const { return symbol == Epsilon; }
-    Symbol getSymbol() const { return symbol; }
-    const State *getTarget() const { return target; }
+    bool isEpsilon() const { return Sym == Epsilon; }
+    Symbol getSymbol() const { return Sym; }
+    const State *getTarget() const { return Target; }
 };
 
 
@@ -72,20 +72,20 @@ public:
 /// \p kind is a marker of if the state is terminal. Non \c tok::unknown kind means that the state
 /// is terminal.
 class State {
-    llvm::SmallVector<Edge, 0> edges;
-    StateID id;
-    tok::TokenKind kind;
+    llvm::SmallVector<Edge, 0> Edges;
+    StateID ID;
+    tok::TokenKind Kind;
 
 public:
-    State(StateID id, tok::TokenKind kind = tok::unknown) : id(id), kind(kind) {}
+    State(StateID id, tok::TokenKind kind = tok::unknown) : ID(id), Kind(kind) {}
 
-    StateID getID() const { return id; }
-    bool isTerminal() const { return kind != tok::unknown; }
-    tok::TokenKind getKind() const { return kind; }
-    void setKind(tok::TokenKind kind) { this->kind = kind; }
-    const llvm::SmallVectorImpl<Edge> &getEdges() const { return edges; }
-    void connectTo(const State *state, Symbol symbol) { edges.push_back(Edge(symbol, state)); }
-    void connectTo(const State *state, char symbol) { edges.push_back(Edge(symbol, state)); }
+    StateID getID() const { return ID; }
+    bool isTerminal() const { return Kind != tok::unknown; }
+    tok::TokenKind getKind() const { return Kind; }
+    void setKind(tok::TokenKind kind) { Kind = kind; }
+    const llvm::SmallVectorImpl<Edge> &getEdges() const { return Edges; }
+    void connectTo(const State *state, Symbol symbol) { Edges.push_back(Edge(symbol, state)); }
+    void connectTo(const State *state, char symbol) { Edges.push_back(Edge(symbol, state)); }
     StateSet getEspClosure() const;
 
     /// Returns only the first found state, or \c nullptr otherwise.
@@ -121,9 +121,9 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &out, const State &state);
 /// After building of eNFA, you can create new \p NFA meeting DFA requirenments and then generate
 /// the DFA implementation via cpp-functions in a source file using \p generateCppImpl method.
 class NFA {
-    llvm::SmallVector<std::unique_ptr<State>, 0> storage;
+    llvm::SmallVector<std::unique_ptr<State>, 0> Storage;
     State *Q0;
-    bool isDFA = false;
+    bool IsDFA = false;
 
 public:
     /// Specifies the mode of transitive function implementation.
@@ -139,7 +139,7 @@ public:
     /// Receives Q0 state — the start state of the finite automaton.
     const State *getStartState() const { return Q0; }
 
-    size_t getNumStates() const { return storage.size(); }
+    size_t getNumStates() const { return Storage.size(); }
 
     /// Builds an NFA-graph from raw string without interpreting special characters.
     ///

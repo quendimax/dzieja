@@ -9,20 +9,19 @@ namespace dzieja {
 
 class Token;
 
-class Lexer
-{
+class Lexer {
     const char *BufferStart;
     const char *BufferEnd;
     const char *BufferPtr;
 
 public:
-    Lexer(const char *BufStart, const char *BufPtr, const char *BufEnd);
-    explicit Lexer(const llvm::MemoryBuffer *InputFile);
+    Lexer(const char *bufferStart, const char *bufferPtr, const char *bufferEnd);
+    explicit Lexer(const llvm::MemoryBuffer *inputFile);
 
     Lexer(const Lexer &) = delete;
     Lexer &operator=(const Lexer &) = delete;
 
-    void Lex(Token &Result);
+    void lex(Token &result);
 };
 
 } // namespace dzieja

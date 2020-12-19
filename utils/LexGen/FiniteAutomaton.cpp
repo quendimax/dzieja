@@ -51,7 +51,7 @@ StateSet State::getEspClosure() const
 
 const State *State::findFollowedInSymbol(Symbol symbol) const
 {
-    for (const auto &edge : edges) {
+    for (const auto &edge : Edges) {
         if (edge.getSymbol() == symbol)
             return edge.getTarget();
     }
@@ -346,7 +346,7 @@ NFA NFA::buildDFA() const
 {
     std::map<const StateSet, State *> convTable;
     NFA dfa;
-    dfa.storage.pop_back(); // by default NFA contains the start state, but here we don't need it
+    dfa.Storage.pop_back(); // by default NFA contains the start state, but here we don't need it
     StateSet setQ0 = getStartState()->getEspClosure();
 
     auto convert = [&](const StateSet &set) {
@@ -383,13 +383,13 @@ NFA NFA::buildDFA() const
         return convertImpl(set, convertImpl);
     };
     dfa.Q0 = convert(setQ0);
-    dfa.isDFA = true;
+    dfa.IsDFA = true;
     return dfa;
 }
 
 NFA NFA::buildMinimizedDFA() const
 {
-    if (!isDFA) {
+    if (!IsDFA) {
         error() << "can't build minimized DFA from NFA!";
         std::exit(1);
     }
@@ -401,26 +401,26 @@ NFA NFA::buildMinimizedDFA() const
 #undef DEBUG_TYPE
 
     NFA minDfa;
-    minDfa.storage.pop_back();
+    minDfa.Storage.pop_back();
 
     // Build groups of states
     DenseMap<const State *, State *> old2new;
     DenseMap<State *, StateSet> new2old;
     BitVector checkedStates;
-    checkedStates.resize(storage.size(), false);
-    for (StateID id = 0, e = storage.size(); id < e; id++) {
+    checkedStates.resize(Storage.size(), false);
+    for (StateID id = 0, e = Storage.size(); id < e; id++) {
         if (checkedStates[id])
             continue;
 
         StateSet group;
-        group.insert(storage[id].get());
+        group.insert(Storage[id].get());
         checkedStates[id] = true;
         for (StateID nextID = 0; nextID < e; nextID++) {
             if (checkedStates[nextID])
                 continue;
 
             if (!areDistinguishable(distingTable, id, nextID)) {
-                group.insert(storage[nextID].get());
+                group.insert(Storage[nextID].get());
                 checkedStates[nextID] = true;
             }
         }
@@ -459,11 +459,11 @@ NFA NFA::buildMinimizedDFA() const
 
 bool NFA::generateCppImpl(StringRef filename, NFA::GeneratingMode mode) const
 {
-    if (!isDFA) {
+    if (!IsDFA) {
         error() << "you are trying generate trasitive table for non DFA";
         return false;
     }
-    if (storage.size() > std::numeric_limits<unsigned short>::max()) {
+    if (Storage.size() > std::numeric_limits<unsigned short>::max()) {
         error() << "number of states is too big for `unsigned short` cell of table";
         return false;
     }
@@ -489,7 +489,7 @@ bool NFA::generateCppImpl(StringRef filename, NFA::GeneratingMode mode) const
 
 raw_ostream &NFA::print(raw_ostream &out) const
 {
-    for (const auto &state : storage) {
+    for (const auto &state : Storage) {
         out << *state << "\n";
         for (const auto &edge : state->getEdges()) {
             out << " |- '";
@@ -508,25 +508,25 @@ raw_ostream &NFA::print(raw_ostream &out) const
 
 State *NFA::makeState(tok::TokenKind kind)
 {
-    auto *newState = new State((StateID)storage.size(), kind);
-    storage.push_back(unique_ptr<State>(newState));
-    return storage.back().get();
+    auto *newState = new State((StateID)Storage.size(), kind);
+    Storage.push_back(unique_ptr<State>(newState));
+    return Storage.back().get();
 }
 
 SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) const
 {
-    assert(isDFA && "can't make equivalent table for non DFA");
+    assert(IsDFA && "can't make equivalent table for non DFA");
 
     // equivalent table initialization
     SmallVector<BitVector, 0> distinTable;
-    distinTable.resize(storage.size());
-    for (size_t i = 0, e = storage.size(); i < e; i++)
+    distinTable.resize(Storage.size());
+    for (size_t i = 0, e = Storage.size(); i < e; i++)
         distinTable[i].resize(e, false);
 
-    for (size_t i = 0, e = storage.size(); i < e; i++) {
+    for (size_t i = 0, e = Storage.size(); i < e; i++) {
         for (size_t j = i + 1; j < e; j++) {
-            auto *st1 = storage[i].get();
-            auto *st2 = storage[j].get();
+            auto *st1 = Storage[i].get();
+            auto *st2 = Storage[j].get();
             if ((st1->isTerminal() && !st2->isTerminal())
                 || (!st1->isTerminal() && st2->isTerminal())) {
                 distinTable[i][j] = true;
@@ -542,14 +542,14 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) cons
     bool isUpdated;
     do {
         isUpdated = false;
-        for (size_t i = 0, e = storage.size(); i < e; i++) {
+        for (size_t i = 0, e = Storage.size(); i < e; i++) {
             for (size_t j = i + 1; j < e; j++) {
                 if (distinTable[i][j])
                     continue;
 
                 for (Symbol c = 0u; c < std::numeric_limits<unsigned char>::max(); c++) {
-                    auto *nextState1 = storage[i]->findFollowedInSymbol(c);
-                    auto *nextState2 = storage[j]->findFollowedInSymbol(c);
+                    auto *nextState1 = Storage[i]->findFollowedInSymbol(c);
+                    auto *nextState2 = Storage[j]->findFollowedInSymbol(c);
                     if (!nextState1 && !nextState2)
                         continue;
 
@@ -572,7 +572,7 @@ void NFA::dumpDistinguishTable(const SmallVector<BitVector, 0> &distingTable,
                                raw_ostream &out) const
 {
     out << "Distiguish table:\n";
-    for (size_t i = 0, e = storage.size(); i < e; i++) {
+    for (size_t i = 0, e = Storage.size(); i < e; i++) {
         for (size_t j = 0; j < e; j++)
             if (i < j)
                 out << (distingTable[i][j] ? "1" : ".") << (j + 1 == e ? "\n" : " ");
@@ -583,17 +583,17 @@ void NFA::dumpDistinguishTable(const SmallVector<BitVector, 0> &distingTable,
 
 NFA::TransitiveTable NFA::buildTransitiveTable() const
 {
-    assert(isDFA && "It's expected that the NFA meets DFA requirements");
+    assert(IsDFA && "It's expected that the NFA meets DFA requirements");
 
     TransitiveTable transTable;
-    transTable.resize(storage.size());
+    transTable.resize(Storage.size());
 
-    const size_t INVALID_ID = storage.size();
+    const size_t INVALID_ID = Storage.size();
     for (auto &row : transTable)
         row.resize(TransTableRowSize, INVALID_ID);
 
-    for (StateID id = 0; id < storage.size(); id++) {
-        const auto *state = storage[id].get();
+    for (StateID id = 0; id < Storage.size(); id++) {
+        const auto *state = Storage[id].get();
         for (const auto &edge : state->getEdges()) {
             transTable[id][edge.getSymbol()] = edge.getTarget()->getID();
         }
@@ -639,12 +639,12 @@ void NFA::printKindTable(raw_ostream &out, int indent) const
         indention += ' ';
 
     out << indention << "static const unsigned short KindTable[";
-    out << storage.size() << "] = {\n";
+    out << Storage.size() << "] = {\n";
     out << indention << "    ";
-    for (size_t i = 0; i < storage.size(); i++) {
-        const auto *state = storage[i].get();
+    for (size_t i = 0; i < Storage.size(); i++) {
+        const auto *state = Storage[i].get();
         out << state->getKind() << "u";
-        out << (i + 1 == storage.size() ? "\n" : ", ");
+        out << (i + 1 == Storage.size() ? "\n" : ", ");
     }
     out << indention << "};\n";
 }
@@ -664,7 +664,7 @@ void NFA::printHeadComment(raw_ostream &out, StringRef end) const
 
 void NFA::printInvalidStateConstant(raw_ostream &out, StringRef end) const
 {
-    out << "enum { DFA_InvalidStateID = " << storage.size() << "u };";
+    out << "enum { DFA_InvalidStateID = " << Storage.size() << "u };";
     out << end;
 }
 
@@ -690,7 +690,7 @@ void NFA::printTransSwitchFunction(raw_ostream &out, StringRef end) const
     out << "#endif\n";
     out << "    switch (stateID) {\n";
     auto transTable = buildTransitiveTable();
-    const size_t InvalidID = storage.size();
+    const size_t InvalidID = Storage.size();
     for (size_t id = 0; id < transTable.size(); ++id) {
         out << "    case " << id << "u:\n";
         out << "        switch (usymbol) {\n";
