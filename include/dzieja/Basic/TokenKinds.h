@@ -18,6 +18,12 @@ enum TokenKind : unsigned short {
     NUM_TOKENS
 };
 
+/// Returns name of token.
+///
+/// For an identifier returns identifier itself. For a keyword returns keyword without \c kw_
+/// prefix. For a punctuator returns punctuator's name as its enum variable name.
+const char *getTokenName(TokenKind kind);
+
 } // namespace tok
 
 } // namespace dzieja
