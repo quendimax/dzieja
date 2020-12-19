@@ -9,7 +9,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR AND NOT MSVC_IDE)
 endif()
 
 set(CMAKE_MODULE_PATH
-    ${CMAKE_MODULE_PATH}
+    "${CMAKE_MODULE_PATH}"
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules"
 )
@@ -24,8 +24,8 @@ set(DZIEJA_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(DZIEJA_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 include_directories(BEFORE
-    ${DZIEJA_BINARY_DIR}/include
-    ${DZIEJA_SOURCE_DIR}/include)
+    "${DZIEJA_BINARY_DIR}/include"
+    "${DZIEJA_SOURCE_DIR}/include")
 
 include(AddDzieja)
 

@@ -25,11 +25,6 @@ Lexer::Lexer(const char *bufferStart, const char *bufferPtr, const char *bufferE
     }
 }
 
-Lexer::Lexer(const MemoryBuffer *inputFile)
-    : Lexer(inputFile->getBufferStart(), inputFile->getBufferStart(), inputFile->getBufferEnd())
-{
-}
-
 // This file is an implementation of DFA for lexer. It is consist of functions
 // DFA_delta(stateID, symbol) and DFA_getKind(stateID), and a constant DFA_InvalidStateID.
 // This file is generated with the dzieja-lexgen util from the dzieja/Basic/TokenKinds.def source.
