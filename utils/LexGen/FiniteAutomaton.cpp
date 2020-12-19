@@ -680,7 +680,7 @@ void NFA::printTransTableFunction(raw_ostream &out, StringRef end) const
 
 void NFA::printTransSwitchFunction(raw_ostream &out, StringRef end) const
 {
-    out << "static inline unsigned short DFA_delta(unsigned stateID, char symbol)\n";
+    out << "static inline unsigned DFA_delta(unsigned stateID, char symbol)\n";
     out << "{\n";
     out << "    unsigned char usymbol = symbol;\n\n";
     out << "#ifdef _MSC_VER\n";
