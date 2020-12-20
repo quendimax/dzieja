@@ -8,6 +8,8 @@ namespace dzieja {
 
 /// Contains information about a lexed token.
 class Token {
+    friend class Lexer;
+
     /// Pointers on the beginning of token in source buffer.
     const char *BufferPtr;
 

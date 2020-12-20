@@ -21,7 +21,15 @@ public:
     Lexer(const Lexer &) = delete;
     Lexer &operator=(const Lexer &) = delete;
 
+    /// Reads next token from an input buffer. Depending on the settings it can skip comment tokens.
     void lex(Token &result);
+
+private:
+    /// Reads next token from an input buffer.
+    ///
+    /// It reads every token includeing comments and gaps. \p lex method decides which token must be
+    /// returned to the client code.
+    void lexInternal(Token &result);
 };
 
 } // namespace dzieja
