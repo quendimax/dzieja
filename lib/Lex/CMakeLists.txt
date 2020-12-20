@@ -11,6 +11,11 @@ add_dzieja_library(dziejaLex
     LINK_COMPONENTS Support
 )
 
+target_link_libraries(dziejaLex
+    PUBLIC 
+        dziejaBasic   # needed for Token::getName implementation via tok::getTokenName
+)
+
 add_custom_command(
     OUTPUT "${LEX_DFA_FILE}"
     COMMAND dzieja-lexgen -gen-via-switch -o "${LEX_DFA_FILE}"

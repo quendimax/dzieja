@@ -51,7 +51,7 @@ KEYWORD(i64)
 KEYWORD(u64)
 
 TOKEN_REGEX(gap, R"([ \n\t\v]+)")
-TOKEN_REGEX(comment, R"((#[^\n]*\n)+)")
+TOKEN_REGEX(comment, R"((#[^\n\0]*\n)+)")
 TOKEN_REGEX(identifier, "[_a-zA-Z][_a-zA-Z0-9]*")
 
 PUNCTUATOR(l_brace, "{")

@@ -29,6 +29,11 @@ Lexer::Lexer(const char *bufferStart, const char *bufferPtr, const char *bufferE
     }
 }
 
+Lexer::Lexer(const MemoryBuffer *inputFile)
+    : Lexer(inputFile->getBufferStart(), inputFile->getBufferStart(), inputFile->getBufferEnd())
+{
+}
+
 void Lexer::lex(Token &result)
 {
     do {
@@ -43,23 +48,26 @@ void Lexer::lex(Token &result)
 
 void Lexer::lexInternal(Token &result)
 {
-    unsigned prevID = DFA_InvalidStateID;
-    unsigned stateID = DFA_InvalidStateID;
+    unsigned prevID = DFA_StartStateID;
+    unsigned stateID = DFA_StartStateID;
     const char *tokStartPtr = BufferPtr;
 
     do {
         prevID = stateID;
         stateID = DFA_delta(stateID, *BufferPtr++);
     } while (stateID != DFA_InvalidStateID);
+    --BufferPtr;
 
     if (DFA_getKind(prevID) == tok::unknown) {
-        WithColor::error() << "unexpected symbol '" << *(BufferPtr - 1) << "'";
+        auto &err = WithColor::error() << "unexpected symbol '";
+        err.write_escaped(StringRef(BufferPtr, 1), true) << "'\n";
         std::exit(1);
     }
 
     result.setBufferPtr(tokStartPtr);
     result.setLength(BufferPtr - tokStartPtr);
     result.setKind((tok::TokenKind)DFA_getKind(prevID));
+
 }
 
 } // namespace dzieja

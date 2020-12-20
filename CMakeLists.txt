@@ -30,4 +30,5 @@ include_directories(BEFORE
 include(AddDzieja)
 
 add_subdirectory(lib)
+add_subdirectory(tools)
 add_subdirectory(utils)

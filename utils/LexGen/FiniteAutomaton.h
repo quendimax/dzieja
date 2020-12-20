@@ -234,7 +234,7 @@ private:
     void dumpDistinguishTable(const llvm::SmallVector<llvm::BitVector, 0> &distingTable,
                               llvm::raw_ostream &out) const;
 
-    enum { TransTableRowSize = 128 }; // now ASCII char is supported only
+    enum { TransTableRowSize = 256 };
     using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;
 
     TransitiveTable buildTransitiveTable() const;

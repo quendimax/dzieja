@@ -91,7 +91,7 @@ void NFA::parseRegex(const char *expr, tok::TokenKind kind)
     Q0->connectTo(sub.first, Epsilon);
     sub.second->setKind(kind);
     if (*expr == ')') {
-        error() << "unexpected close paren ')' without previous open one";
+        error() << "unexpected close paren ')' without previous open one\n";
         std::exit(1);
     }
     assert(*expr == '\0' && "parsing must be finished with zero character");
@@ -140,7 +140,7 @@ finish:
 char NFA::parseSymbolCodePoint(const char *&expr)
 {
     if (*expr & 0x80) {
-        error() << "non ASCII characters are not supported";
+        error() << "non ASCII characters are not supported\n";
         std::exit(1);
     }
     char c = *expr;
@@ -169,9 +169,8 @@ char NFA::parseSymbolCodePoint(const char *&expr)
             break;
         // clang-format on
         default:
-            auto &err = error();
-            err << "unsupported escaped character '";
-            err.write_escaped(StringRef(expr, 1), true) << "'";
+            auto &err = error() << "unsupported escaped character '";
+            err.write_escaped(StringRef(expr, 1), true) << "'\n";
             std::exit(1);
         }
     }
@@ -191,7 +190,7 @@ NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
 NFA::SubAutomaton NFA::parseSquareSymbol(const char *&expr)
 {
     if (*expr == '-') {
-        error() << "'-' character can lay in square brackets between two characters only";
+        error() << "'-' character can lay in square brackets between two characters only\n";
         std::exit(1);
     }
     return parseSymbol(expr);
@@ -203,7 +202,7 @@ NFA::SubAutomaton NFA::parseParen(const char *&expr)
     ++expr;
     auto autom = parseSequence(expr);
     if (*expr != ')') {
-        error() << "close paren ')' is expected!";
+        error() << "close paren ')' is expected!\n";
         std::exit(1);
     }
     ++expr;
@@ -232,10 +231,9 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
             ++expr;
             unsigned char secondChar = parseSymbolCodePoint(expr);
             if (secondChar < firstChar) {
-                auto &err = error();
-                err << "character range in [";
+                auto &err = error() << "character range in [";
                 err.write_escaped(StringRef((char *)&firstChar, 1), true) << "-";
-                err.write_escaped(StringRef((char *)&secondChar, 1), true) << "] is incorrect";
+                err.write_escaped(StringRef((char *)&secondChar, 1), true) << "] is incorrect\n";
                 std::exit(1);
             }
             for (Symbol c = firstChar; c <= secondChar; c++)
@@ -267,7 +265,7 @@ NFA::SubAutomaton NFA::parseQualifier(const char *&expr, SubAutomaton autom)
         return autom;
     }
     if (*expr == '?' || *expr == '*' || *expr == '+') {
-        error() << "qualifier mustn't be after another qualifier";
+        error() << "qualifier mustn't be after another qualifier\n";
         std::exit(1);
     }
     return autom;
@@ -390,7 +388,7 @@ NFA NFA::buildDFA() const
 NFA NFA::buildMinimizedDFA() const
 {
     if (!IsDFA) {
-        error() << "can't build minimized DFA from NFA!";
+        error() << "can't build minimized DFA from NFA!\n";
         std::exit(1);
     }
 
@@ -460,11 +458,11 @@ NFA NFA::buildMinimizedDFA() const
 bool NFA::generateCppImpl(StringRef filename, NFA::GeneratingMode mode) const
 {
     if (!IsDFA) {
-        error() << "you are trying generate trasitive table for non DFA";
+        error() << "you are trying generate trasitive table for non DFA\n";
         return false;
     }
     if (Storage.size() > std::numeric_limits<unsigned short>::max()) {
-        error() << "number of states is too big for `unsigned short` cell of table";
+        error() << "number of states is too big for `unsigned short` cell of table\n";
         return false;
     }
     error_code EC;
@@ -664,7 +662,10 @@ void NFA::printHeadComment(raw_ostream &out, StringRef end) const
 
 void NFA::printInvalidStateConstant(raw_ostream &out, StringRef end) const
 {
-    out << "enum { DFA_InvalidStateID = " << Storage.size() << "u };";
+    out << "enum {\n";
+    out << "    DFA_StartStateID = " << Q0->getID() << "u,\n";
+    out << "    DFA_InvalidStateID = " << Storage.size() << "u\n";
+    out << "};";
     out << end;
 }
 
