@@ -6,7 +6,6 @@ add_dzieja_library(dziejaLex
     "${INCLUDE_DIR}/Lexer.h"
     "${INCLUDE_DIR}/Token.h"
     Lexer.cpp
-    Token.cpp
     "${LEX_DFA_FILE}"
 
     LINK_COMPONENTS Support

@@ -33,7 +33,7 @@ void Lexer::lex(Token &result)
 {
     do {
         lexInternal(result);
-    } while (result.getKind() == tok::gap || result.getKind() == tok::comment);
+    } while (result.isOneOf(tok::gap, tok::comment));
 }
 
 // This file is an implementation of DFA for lexer. It is consist of functions
@@ -57,8 +57,8 @@ void Lexer::lexInternal(Token &result)
         std::exit(1);
     }
 
-    result.BufferPtr = tokStartPtr;
-    result.Len = BufferPtr - tokStartPtr;
+    result.setBufferPtr(tokStartPtr);
+    result.setLength(BufferPtr - tokStartPtr);
     result.setKind((tok::TokenKind)DFA_getKind(prevID));
 }
 
