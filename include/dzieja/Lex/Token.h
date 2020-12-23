@@ -3,6 +3,8 @@
 
 #include "dzieja/Basic/TokenKinds.h"
 
+#include <llvm/ADT/StringRef.h>
+
 namespace dzieja {
 
 /// Contains information about a lexed token.
@@ -36,6 +38,8 @@ public:
 
     unsigned getLength() const { return Len; }
     void setLength(unsigned length) { Len = length; }
+
+    llvm::StringRef getSpelling() const { return {BufferPtr, Len}; }
 };
 
 } // namespace dzieja
