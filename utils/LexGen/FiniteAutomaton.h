@@ -39,6 +39,7 @@ using StateID = unsigned int;
 using Symbol = unsigned int;
 
 constexpr Symbol Epsilon = std::numeric_limits<Symbol>::max();
+constexpr Symbol MaxSymbolValue = 0xffu;
 
 using StateSet = std::set<const State *>;
 
@@ -50,7 +51,7 @@ class Edge {
 public:
     Edge(Symbol symbol, const State *target = nullptr) : Target(target), Sym(symbol)
     {
-        assert((symbol == (0x7f & symbol) || symbol == Epsilon)
+        assert((symbol == (MaxSymbolValue & symbol) || symbol == Epsilon)
                && "the symbol must be either an ASCII character or the Epsilon");
     }
 

@@ -67,7 +67,6 @@ void Lexer::lexInternal(Token &result)
     result.setBufferPtr(tokStartPtr);
     result.setLength(BufferPtr - tokStartPtr);
     result.setKind((tok::TokenKind)DFA_getKind(prevID));
-
 }
 
 } // namespace dzieja

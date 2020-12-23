@@ -214,9 +214,13 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
     assert(*expr == '[' && "open paren '[' is exptected");
     ++expr;
 
-    const bool isNegative = *expr == '^' ? true : false;
+    bool isNegative = false;
+    if (*expr == '^') {
+        isNegative = true;
+        ++expr;
+    }
     llvm::BitVector symbols; // marks if an element must be include in the range of chars
-    symbols.resize(128, isNegative);
+    symbols.resize(TransTableRowSize, isNegative);
 
     for (;;) {
         if (*expr == ']') {
@@ -243,9 +247,9 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
 
     auto *firstState = makeState();
     auto *lastState = makeState();
-    for (unsigned char c = 0; c < 128; c++)
+    for (Symbol c = 0; c <= MaxSymbolValue; c++)
         if (symbols[c])
-            firstState->connectTo(lastState, (Symbol)c);
+            firstState->connectTo(lastState, c);
     return {firstState, lastState};
 }
 
