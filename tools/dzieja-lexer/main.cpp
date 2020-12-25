@@ -17,6 +17,7 @@ static cl::opt<bool> PrintTokenName("print-tok-name", cl::init(false),
 static cl::opt<bool>
     PrintTokenSpelling("print-tok-spell", cl::init(false),
                        cl::desc("Print tokens' spellings separated with new line"));
+static cl::opt<int> Repeat("repeat", cl::init(1), cl::desc("Repeat lexing of a file N times"));
 
 int main(int argc, const char *argv[])
 {
@@ -28,15 +29,17 @@ int main(int argc, const char *argv[])
         return 1;
     }
 
-    Lexer L(buffer.get().get());
-    Token T;
-    do {
-        L.lex(T);
-        if (PrintTokenName)
-            llvm::outs() << T.getName() << "\n";
-        if (PrintTokenSpelling)
-            llvm::outs() << T.getSpelling() << "\n";
-    } while (!T.is(dzieja::tok::eof));
+    for (int i = 0; i < Repeat; ++i) {
+        Lexer L(buffer.get().get());
+        Token T;
+        do {
+            L.lex(T);
+            if (PrintTokenName)
+                llvm::outs() << T.getName() << "\n";
+            if (PrintTokenSpelling)
+                llvm::outs() << T.getSpelling() << "\n";
+        } while (!T.is(dzieja::tok::eof));
+    }
 
     return 0;
 }
