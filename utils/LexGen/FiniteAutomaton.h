@@ -156,7 +156,7 @@ private:
     using SubAutomaton = std::pair<State *, State *>;
 
     SubAutomaton parseSequence(const char *&expr);
-    SubAutomaton makeSymbolFromCodePoint(llvm::UTF32 codePoint);
+    SubAutomaton makeSubAutomFromCodePoint(llvm::UTF32 codePoint);
     SubAutomaton parseSymbol(const char *&expr);
     SubAutomaton parseParen(const char *&expr);
     SubAutomaton parseSquare(const char *&expr);

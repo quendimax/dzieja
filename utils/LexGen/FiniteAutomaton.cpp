@@ -11,6 +11,8 @@
 #include <cctype>
 #include <map>
 
+#define UNI_SUR_HIGH_START (UTF32)0xD800
+#define UNI_SUR_LOW_END (UTF32)0xDFFF
 
 using namespace llvm;
 using namespace std;
@@ -138,7 +140,8 @@ finish:
 
 /// Parse an escape sequence specifying a unicode symbol.
 ///
-/// The escape sequence has two forms: \uxxxx and \Uxxxxxx, where \c x is a hex digit.
+/// The escape sequence has two forms: \uxxxx and \Uxxxxxx, where \c x is a hex digit. After parsing
+/// \c expr points to the last character of parsed sequence (not after it!).
 static UTF32 parseUnicodeEscape(const char *&expr)
 {
     assert(*expr == 'u' || *expr == 'U');
@@ -220,12 +223,14 @@ static UTF32 parseSymbolCodePoint(const char *&expr)
     return codePoint;
 }
 
-NFA::SubAutomaton NFA::makeSymbolFromCodePoint(UTF32 codePoint)
+NFA::SubAutomaton NFA::makeSubAutomFromCodePoint(UTF32 codePoint)
 {
     SmallString<UNI_MAX_UTF8_BYTES_PER_CODE_POINT> u8seq;
+    u8seq.set_size(UNI_MAX_UTF8_BYTES_PER_CODE_POINT);
     char *ptr = u8seq.data();
     if (!ConvertCodePointToUTF8(codePoint, ptr)) {
-        error() << "can't convert code point " << codePoint << " into UTF8 sequence\n";
+        auto &err = error() << "can't convert code point ";
+        err.write_hex(codePoint) << " into UTF8 sequence\n";
         std::exit(1);
     }
     unsigned size = ptr - u8seq.data();
@@ -242,7 +247,7 @@ NFA::SubAutomaton NFA::makeSymbolFromCodePoint(UTF32 codePoint)
 NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
 {
     UTF32 codePoint = parseSymbolCodePoint(expr);
-    return makeSymbolFromCodePoint(codePoint);
+    return makeSubAutomFromCodePoint(codePoint);
 }
 
 NFA::SubAutomaton NFA::parseParen(const char *&expr)
@@ -261,40 +266,46 @@ NFA::SubAutomaton NFA::parseParen(const char *&expr)
 NFA::SubAutomaton NFA::parseSquare(const char *&expr)
 {
     assert(*expr == '[' && "open paren '[' is exptected");
-    ++expr;
 
+    const char *startSource = ++expr;
     bool isNegative = false;
     if (*expr == '^') {
         isNegative = true;
         ++expr;
     }
-    llvm::BitVector symbols; // marks if an element must be include in the range of chars
-    symbols.resize(TransTableRowSize, isNegative);
+    llvm::BitVector unicodeMarkers; // marks if an element must be include in the range of chars
+    unicodeMarkers.resize(UNI_MAX_LEGAL_UTF32 + 1, isNegative);
 
     while (*expr != ']') {
-        char firstChar = parseSymbolCodePoint(expr);
-        symbols[firstChar] = !isNegative;
+        UTF32 firstPoint = parseSymbolCodePoint(expr);
+        unicodeMarkers[firstPoint] = !isNegative;
 
         if (*expr == '-') {
             ++expr;
-            unsigned char secondChar = parseSymbolCodePoint(expr);
-            if (secondChar < firstChar) {
+            UTF32 secondPoint = parseSymbolCodePoint(expr);
+            if (secondPoint < firstPoint) {
                 auto &err = error() << "character range in [";
-                err.write_escaped(StringRef((char *)&firstChar, 1), true) << "-";
-                err.write_escaped(StringRef((char *)&secondChar, 1), true) << "] is incorrect\n";
+                err << StringRef(startSource, expr - startSource) << "] is not consecutive\n";
                 std::exit(1);
             }
-            for (Symbol c = firstChar; c <= secondChar; c++)
-                symbols[c] = !isNegative;
+            for (Symbol c = firstPoint; c <= secondPoint; c++)
+                unicodeMarkers[c] = !isNegative;
         }
     }
     ++expr;
 
     auto *firstState = makeState();
     auto *lastState = makeState();
-    for (Symbol c = 0; c <= MaxSymbolValue; c++)
-        if (symbols[c])
-            firstState->connectTo(lastState, c);
+    for (UTF32 c = 0; c <= UNI_MAX_LEGAL_UTF32; c++)
+        if ((c < UNI_SUR_HIGH_START || UNI_SUR_LOW_END < c) && unicodeMarkers[c])
+            if (c > 127) {
+                auto autom = makeSubAutomFromCodePoint(c);
+                firstState->connectTo(autom.first, Epsilon);
+                autom.second->connectTo(lastState, Epsilon);
+            }
+            else { // c is ASCII compatible
+                firstState->connectTo(lastState, c);
+            }
     return {firstState, lastState};
 }
 
@@ -545,7 +556,8 @@ raw_ostream &NFA::print(raw_ostream &out) const
             }
             else {
                 char c = edge.getSymbol();
-                out.write_escaped(StringRef(&c, 1), true);
+                bool useHexEscapes = c & 0x80 ? false : true;
+                out.write_escaped(StringRef(&c, 1), useHexEscapes);
             }
             out << "' - " << *edge.getTarget() << "\n";
         }
