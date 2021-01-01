@@ -8,6 +8,7 @@
 #include <llvm/Support/WithColor.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <cctype>
 #include <map>
 
 
@@ -135,65 +136,113 @@ finish:
     return {firstState, finishState};
 }
 
-/// Parse a symbol and returns its unicode point. It doesn't create \p SubAutomaton unlike
-/// \p parseSymbol method.
-char NFA::parseSymbolCodePoint(const char *&expr)
+/// Parse an escape sequence specifying a unicode symbol.
+///
+/// The escape sequence has two forms: \uxxxx and \Uxxxxxx, where \c x is a hex digit.
+static UTF32 parseUnicodeEscape(const char *&expr)
 {
-    if (*expr & 0x80) {
-        error() << "non ASCII characters are not supported\n";
-        std::exit(1);
-    }
-    char c = *expr;
-    if (*expr == '\\') {
-        ++expr;
-        switch (*expr) {
-        case 'n':
-            c = '\n';
-            break;
-        case 'r':
-            c = '\r';
-            break;
-        case 't':
-            c = '\t';
-            break;
-        case 'v':
-            c = '\v';
-            break;
-        case '0':
-            c = '\0';
-            break;
-        // clang-format off
-        case '(': case ')': case '[': case ']': case '-': case '\\':
-        case '^': case '|': case '+': case '*': case '?':
-            c = *expr;
-            break;
-        // clang-format on
-        default:
-            auto &err = error() << "unsupported escaped character '";
-            err.write_escaped(StringRef(expr, 1), true) << "'\n";
+    assert(*expr == 'u' || *expr == 'U');
+
+    char marker = *expr;
+    int numOfDigits = marker == 'u' ? 4 : 6;
+    UTF32 codePoint = 0;
+    for (int i = 0; i < numOfDigits; i++) {
+        int c = (unsigned char)*++expr;
+        if (std::isxdigit(c)) {
+            codePoint <<= 4;
+            if (std::isdigit(c))
+                codePoint |= c - '0';
+            else
+                codePoint |= std::toupper(c) - 'A' + 10;
+        }
+        else {
+            error() << "after \\" << marker << " " << numOfDigits << " hex digits are expected\n";
             std::exit(1);
         }
     }
-    ++expr;
-    return c;
+    // I don't add ++expr because it is in outer parseSymbolCodePoint function.
+    return codePoint;
+}
+
+/// Parse a symbol and returns its unicode point. It doesn't create \p SubAutomaton unlike
+/// \p parseSymbol method.
+static UTF32 parseSymbolCodePoint(const char *&expr)
+{
+    UTF32 codePoint;
+    if (*expr & 0x80) { // is not an ASCII char
+        unsigned numBytes = llvm::getNumBytesForUTF8((UTF8)*expr);
+        const UTF8 **source = (const UTF8 **)&expr;
+        auto result = convertUTF8Sequence(source, *source + numBytes, &codePoint, strictConversion);
+        if (result != conversionOK) {
+            auto &err = error() << "source sequence '";
+            err.write_escaped(StringRef(expr, numBytes)) << "' is malformed UTF8 symbol\n";
+            std::exit(1);
+        }
+    }
+    else { // is an ASCII char
+        codePoint = (unsigned char)*expr;
+        if (*expr == '\\') {
+            ++expr;
+            switch (*expr) {
+            case 'n':
+                codePoint = (unsigned char)'\n';
+                break;
+            case 'r':
+                codePoint = (unsigned char)'\r';
+                break;
+            case 't':
+                codePoint = (unsigned char)'\t';
+                break;
+            case 'v':
+                codePoint = (unsigned char)'\v';
+                break;
+            case '0':
+                codePoint = (unsigned char)'\0';
+                break;
+            case 'u':
+            case 'U':
+                codePoint = parseUnicodeEscape(expr);
+                break;
+            // clang-format off
+            case '(': case ')': case '[': case ']': case '-': case '\\':
+            case '^': case '|': case '+': case '*': case '?':
+                codePoint = (unsigned char)*expr;
+                break;
+            // clang-format on
+            default:
+                auto &err = error() << "unsupported escaped character '";
+                err.write_escaped(StringRef(expr, 1), true) << "'\n";
+                std::exit(1);
+            }
+        }
+        ++expr;
+    }
+    return codePoint;
+}
+
+NFA::SubAutomaton NFA::makeSymbolFromCodePoint(UTF32 codePoint)
+{
+    SmallString<UNI_MAX_UTF8_BYTES_PER_CODE_POINT> u8seq;
+    char *ptr = u8seq.data();
+    if (!ConvertCodePointToUTF8(codePoint, ptr)) {
+        error() << "can't convert code point " << codePoint << " into UTF8 sequence\n";
+        std::exit(1);
+    }
+    unsigned size = ptr - u8seq.data();
+    auto *first = makeState();
+    auto *last = first;
+    for (unsigned i = 0; i < size; i++) {
+        auto *newOne = makeState();
+        last->connectTo(newOne, u8seq[i]);
+        last = newOne;
+    }
+    return {first, last};
 }
 
 NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
 {
-    char c = parseSymbolCodePoint(expr);
-    auto *first = makeState();
-    auto *last = makeState();
-    first->connectTo(last, c);
-    return {first, last};
-}
-
-NFA::SubAutomaton NFA::parseSquareSymbol(const char *&expr)
-{
-    if (*expr == '-') {
-        error() << "'-' character can lay in square brackets between two characters only\n";
-        std::exit(1);
-    }
-    return parseSymbol(expr);
+    UTF32 codePoint = parseSymbolCodePoint(expr);
+    return makeSymbolFromCodePoint(codePoint);
 }
 
 NFA::SubAutomaton NFA::parseParen(const char *&expr)
@@ -222,13 +271,8 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
     llvm::BitVector symbols; // marks if an element must be include in the range of chars
     symbols.resize(TransTableRowSize, isNegative);
 
-    for (;;) {
-        if (*expr == ']') {
-            ++expr;
-            break;
-        }
-
-        unsigned char firstChar = parseSymbolCodePoint(expr);
+    while (*expr != ']') {
+        char firstChar = parseSymbolCodePoint(expr);
         symbols[firstChar] = !isNegative;
 
         if (*expr == '-') {
@@ -244,6 +288,7 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
                 symbols[c] = !isNegative;
         }
     }
+    ++expr;
 
     auto *firstState = makeState();
     auto *lastState = makeState();

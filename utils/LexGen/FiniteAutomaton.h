@@ -20,6 +20,7 @@
 #include <llvm/ADT/SmallSet.h>
 #include <llvm/ADT/SmallVector.h>
 #include <llvm/ADT/StringRef.h>
+#include <llvm/Support/ConvertUTF.h>
 #include <llvm/Support/raw_ostream.h>
 
 #include <cassert>
@@ -155,9 +156,8 @@ private:
     using SubAutomaton = std::pair<State *, State *>;
 
     SubAutomaton parseSequence(const char *&expr);
-    char parseSymbolCodePoint(const char *&expr);
+    SubAutomaton makeSymbolFromCodePoint(llvm::UTF32 codePoint);
     SubAutomaton parseSymbol(const char *&expr);
-    SubAutomaton parseSquareSymbol(const char *&expr);
     SubAutomaton parseParen(const char *&expr);
     SubAutomaton parseSquare(const char *&expr);
     SubAutomaton parseQualifier(const char *&expr, SubAutomaton);
