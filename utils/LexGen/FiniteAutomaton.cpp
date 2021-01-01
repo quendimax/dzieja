@@ -209,7 +209,8 @@ static UTF32 parseSymbolCodePoint(const char *&expr)
     return codePoint;
 }
 
-NFA::SubAutomaton NFA::makeSubAutomFromCodePoint(UTF32 codePoint)
+// I use firstLast for optimization. It noticeably decrease number of states
+NFA::SubAutomaton NFA::makeSubAutomFromCodePoint(UTF32 codePoint, SubAutomaton firstLast)
 {
     SmallString<UNI_MAX_UTF8_BYTES_PER_CODE_POINT> u8seq;
     u8seq.set_size(UNI_MAX_UTF8_BYTES_PER_CODE_POINT);
@@ -220,20 +221,21 @@ NFA::SubAutomaton NFA::makeSubAutomFromCodePoint(UTF32 codePoint)
         std::exit(1);
     }
     unsigned size = ptr - u8seq.data();
-    auto *first = makeState();
+    auto *first = firstLast.first;
     auto *last = first;
-    for (unsigned i = 0; i < size; i++) {
+    for (unsigned i = 0; i < size - 1; i++) {
         auto *newOne = makeState();
         last->connectTo(newOne, u8seq[i]);
         last = newOne;
     }
-    return {first, last};
+    last->connectTo(firstLast.second, u8seq[size - 1]);
+    return firstLast;
 }
 
 NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
 {
     UTF32 codePoint = parseSymbolCodePoint(expr);
-    return makeSubAutomFromCodePoint(codePoint);
+    return makeSubAutomFromCodePoint(codePoint, {makeState(), makeState()});
 }
 
 NFA::SubAutomaton NFA::parseParen(const char *&expr)
@@ -285,7 +287,7 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
     for (UTF32 c = 0; c <= UNI_MAX_LEGAL_UTF32; c++)
         if ((c < UNI_SUR_HIGH_START || UNI_SUR_LOW_END < c) && unicodeMarkers[c]) {
             if (c > 127) {
-                auto autom = makeSubAutomFromCodePoint(c);
+                auto autom = makeSubAutomFromCodePoint(c, {firstState, lastState});
                 firstState->connectTo(autom.first, Epsilon);
                 autom.second->connectTo(lastState, Epsilon);
             }
