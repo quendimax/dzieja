@@ -446,6 +446,7 @@ NFA NFA::buildMinimizedDFA() const
 #undef DEBUG_TYPE
 
     NFA minDfa;
+    minDfa.IsDFA = true;
     minDfa.Storage.pop_back();
 
     // Build groups of states
@@ -586,7 +587,7 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) cons
     }
 
     const StateID InvalidID = Storage.size();
-    auto reverseTable = buildReverseTransitiveTable();
+    auto transTable = buildTransitiveTable();
     bool isUpdated;
     do {
         isUpdated = false;
@@ -596,8 +597,8 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) cons
                     continue;
 
                 for (Symbol c = 0u; c <= MaxSymbolValue; c++) {
-                    StateID nextState1 = reverseTable[i][c];
-                    StateID nextState2 = reverseTable[j][c];
+                    StateID nextState1 = transTable[i][c];
+                    StateID nextState2 = transTable[j][c];
                     if (nextState1 == InvalidID && nextState2 == InvalidID)
                         continue;
 

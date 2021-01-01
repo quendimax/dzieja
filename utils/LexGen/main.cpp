@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
     LLVM_DEBUG(minDfa.print(llvm::errs()) << "\n");
 #undef DEBUG_TYPE
 
-    if (!dfa.generateCppImpl(Output.c_str(), GenMode))
+    if (!minDfa.generateCppImpl(Output.c_str(), GenMode))
         return 1;
     return 0;
 }
