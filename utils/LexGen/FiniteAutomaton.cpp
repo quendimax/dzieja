@@ -52,20 +52,6 @@ StateSet State::getEspClosure() const
     return closure;
 }
 
-const State *State::findFollowedInSymbol(Symbol symbol) const
-{
-    for (const auto &edge : Edges) {
-        if (edge.getSymbol() == symbol)
-            return edge.getTarget();
-    }
-    return nullptr;
-}
-
-const State *State::findFollowedInSymbol(char c) const
-{
-    return findFollowedInSymbol((Symbol)(unsigned char)c);
-}
-
 raw_ostream &operator<<(raw_ostream &out, const State &state)
 {
     out << "State";
@@ -297,7 +283,7 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
     auto *firstState = makeState();
     auto *lastState = makeState();
     for (UTF32 c = 0; c <= UNI_MAX_LEGAL_UTF32; c++)
-        if ((c < UNI_SUR_HIGH_START || UNI_SUR_LOW_END < c) && unicodeMarkers[c])
+        if ((c < UNI_SUR_HIGH_START || UNI_SUR_LOW_END < c) && unicodeMarkers[c]) {
             if (c > 127) {
                 auto autom = makeSubAutomFromCodePoint(c);
                 firstState->connectTo(autom.first, Epsilon);
@@ -306,6 +292,7 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
             else { // c is ASCII compatible
                 firstState->connectTo(lastState, c);
             }
+        }
     return {firstState, lastState};
 }
 
@@ -598,23 +585,25 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) cons
         }
     }
 
+    const StateID InvalidID = Storage.size();
+    auto reverseTable = buildReverseTransitiveTable();
     bool isUpdated;
     do {
         isUpdated = false;
-        for (size_t i = 0, e = Storage.size(); i < e; i++) {
-            for (size_t j = i + 1; j < e; j++) {
+        for (StateID i = 0, e = Storage.size(); i < e; i++) {
+            for (StateID j = i + 1; j < e; j++) {
                 if (distinTable[i][j])
                     continue;
 
-                for (Symbol c = 0u; c < std::numeric_limits<unsigned char>::max(); c++) {
-                    auto *nextState1 = Storage[i]->findFollowedInSymbol(c);
-                    auto *nextState2 = Storage[j]->findFollowedInSymbol(c);
-                    if (!nextState1 && !nextState2)
+                for (Symbol c = 0u; c <= MaxSymbolValue; c++) {
+                    StateID nextState1 = reverseTable[i][c];
+                    StateID nextState2 = reverseTable[j][c];
+                    if (nextState1 == InvalidID && nextState2 == InvalidID)
                         continue;
 
-                    if ((nextState1 && !nextState2) || (!nextState1 && nextState2)
-                        || areDistinguishable(distinTable, nextState1->getID(),
-                                              nextState2->getID())) {
+                    if ((nextState1 != InvalidID && nextState2 == InvalidID)
+                        || (nextState1 == InvalidID && nextState2 != InvalidID)
+                        || areDistinguishable(distinTable, nextState1, nextState2)) {
                         distinTable[i][j] = true;
                         isUpdated = true;
                         break;
@@ -653,11 +642,29 @@ NFA::TransitiveTable NFA::buildTransitiveTable() const
 
     for (StateID id = 0; id < Storage.size(); id++) {
         const auto *state = Storage[id].get();
-        for (const auto &edge : state->getEdges()) {
+        for (const auto &edge : state->getEdges())
             transTable[id][edge.getSymbol()] = edge.getTarget()->getID();
-        }
     }
     return transTable;
+}
+
+NFA::TransitiveTable NFA::buildReverseTransitiveTable() const
+{
+    assert(IsDFA && "It's expected that the NFA meets DFA requirements");
+
+    TransitiveTable table;
+    table.resize(Storage.size());
+
+    const size_t InvalidID = Storage.size();
+    for (auto &row : table)
+        row.resize(TransTableRowSize, InvalidID);
+
+    for (StateID id = 0; id < Storage.size(); id++) {
+        const auto *state = Storage[id].get();
+        for (const auto &edge : state->getEdges())
+            table[edge.getTarget()->getID()][edge.getSymbol()] = id;
+    }
+    return table;
 }
 
 /// Returns type required for containing of \p size states plus invalid one.

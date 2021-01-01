@@ -40,7 +40,7 @@ using StateID = unsigned int;
 using Symbol = unsigned int;
 
 constexpr Symbol Epsilon = std::numeric_limits<Symbol>::max();
-constexpr Symbol MaxSymbolValue = 0xffu;
+constexpr Symbol MaxSymbolValue = std::numeric_limits<unsigned char>::max();
 
 using StateSet = std::set<const State *>;
 
@@ -89,12 +89,6 @@ public:
     void connectTo(const State *state, Symbol symbol) { Edges.push_back(Edge(symbol, state)); }
     void connectTo(const State *state, char symbol) { Edges.push_back(Edge(symbol, state)); }
     StateSet getEspClosure() const;
-
-    /// Returns only the first found state, or \c nullptr otherwise.
-    const State *findFollowedInSymbol(Symbol symbol) const;
-
-    /// Returns only the first found state, or \c nullptr otherwise.
-    const State *findFollowedInSymbol(char c) const;
 
 private:
     State(const State &) = delete;
@@ -199,6 +193,7 @@ private:
     using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;
 
     TransitiveTable buildTransitiveTable() const;
+    TransitiveTable buildReverseTransitiveTable() const;
     void printTransitiveTable(const TransitiveTable &, llvm::raw_ostream &, int indent = 0) const;
     void printKindTable(llvm::raw_ostream &, int indent = 0) const;
 
