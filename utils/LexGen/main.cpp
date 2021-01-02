@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 
     NFA minDfa = dfa.buildMinimizedDFA();
     if (Verbose)
-        llvm::errs() << "Minimized DFA has " << minDfa.getNumStates() << " states.\n";
+        llvm::errs() << "minDFA has " << minDfa.getNumStates() << " states.\n";
 
 #define DEBUG_TYPE "min-dfa"
     LLVM_DEBUG(minDfa.print(llvm::errs()) << "\n");

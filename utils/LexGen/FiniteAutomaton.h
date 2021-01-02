@@ -192,9 +192,11 @@ private:
 
     enum { TransTableRowSize = 256 };
     using TransitiveTable = llvm::SmallVector<llvm::SmallVector<StateID, TransTableRowSize>, 0>;
+    using ReverseTable =
+        llvm::SmallVector<llvm::SmallVector<llvm::SmallVector<StateID, 0>, TransTableRowSize>, 0>;
 
     TransitiveTable buildTransitiveTable() const;
-    TransitiveTable buildReverseTransitiveTable() const;
+    ReverseTable buildReverseTransitiveTable() const;
     void printTransitiveTable(const TransitiveTable &, llvm::raw_ostream &, int indent = 0) const;
     void printKindTable(llvm::raw_ostream &, int indent = 0) const;
 

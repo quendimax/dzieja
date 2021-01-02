@@ -2,6 +2,7 @@
 
 #include <llvm/ADT/BitVector.h>
 #include <llvm/ADT/DenseMap.h>
+#include <llvm/ADT/DenseSet.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallString.h>
 #include <llvm/Support/Debug.h>
@@ -10,6 +11,7 @@
 
 #include <cctype>
 #include <map>
+#include <queue>
 
 #define UNI_SUR_HIGH_START (UTF32)0xD800
 #define UNI_SUR_LOW_END (UTF32)0xDFFF
@@ -617,56 +619,57 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) cons
 {
     assert(IsDFA && "can't make equivalent table for non DFA");
 
-    // equivalent table initialization
+    const StateID InvalidID = Storage.size();
+    std::queue<std::pair<StateID, StateID>> queue;
     SmallVector<BitVector, 0> distinTable;
-    distinTable.resize(Storage.size());
-    for (size_t i = 0, e = Storage.size(); i < e; i++)
+    distinTable.resize(Storage.size() + 1);
+    for (size_t i = 0, e = Storage.size() + 1; i < e; i++)
         distinTable[i].resize(e, false);
 
-    for (size_t i = 0, e = Storage.size(); i < e; i++) {
-        for (size_t j = i + 1; j < e; j++) {
-            auto *st1 = Storage[i].get();
+    for (StateID i = 0, e = Storage.size(); i < e; i++) {
+        auto *st1 = Storage[i].get();
+        for (StateID j = i + 1; j < e; j++) {
             auto *st2 = Storage[j].get();
             if ((st1->isTerminal() && !st2->isTerminal())
                 || (!st1->isTerminal() && st2->isTerminal())) {
                 distinTable[i][j] = true;
+                queue.push({i, j});
             }
             else if (distinguishKinds) {
-                if (st1->isTerminal() && st2->isTerminal() && st1->getKind() != st2->getKind())
+                if (st1->isTerminal() && st2->isTerminal() && st1->getKind() != st2->getKind()) {
                     // we need to distinguish key words and identifier for example
                     distinTable[i][j] = true;
+                    queue.push({i, j});
+                }
             }
         }
+        distinTable[i][InvalidID] = true;
+        queue.push({i, InvalidID});
     }
 
-    const StateID InvalidID = Storage.size();
-    auto transTable = buildTransitiveTable();
-    bool isUpdated;
-    do {
-        isUpdated = false;
-        for (StateID i = 0, e = Storage.size(); i < e; i++) {
-            for (StateID j = i + 1; j < e; j++) {
-                if (distinTable[i][j])
-                    continue;
-
-                for (Symbol c = 0u; c <= MaxSymbolValue; c++) {
-                    StateID nextState1 = transTable[i][c];
-                    StateID nextState2 = transTable[j][c];
-                    if (nextState1 == InvalidID && nextState2 == InvalidID)
-                        continue;
-
-                    if ((nextState1 != InvalidID && nextState2 == InvalidID)
-                        || (nextState1 == InvalidID && nextState2 != InvalidID)
-                        || areDistinguishable(distinTable, nextState1, nextState2)) {
-                        distinTable[i][j] = true;
-                        isUpdated = true;
-                        break;
+    auto reverseTable = buildReverseTransitiveTable();
+    while (!queue.empty()) {
+        auto curPair = queue.front();
+        queue.pop();
+        for (Symbol c = 0; c < MaxSymbolValue; c++) {
+            for (StateID firstID : reverseTable[curPair.first][c]) {
+                for (StateID secondID : reverseTable[curPair.second][c]) {
+                    if (firstID < secondID) {
+                        if (!distinTable[firstID][secondID]) {
+                            distinTable[firstID][secondID] = true;
+                            queue.push({firstID, secondID});
+                        }
+                    }
+                    else if (firstID > secondID) {
+                        if (!distinTable[secondID][firstID]) {
+                            distinTable[secondID][firstID] = true;
+                            queue.push({secondID, firstID});
+                        }
                     }
                 }
             }
         }
-    } while (isUpdated);
-
+    }
     return distinTable;
 }
 
@@ -702,23 +705,34 @@ NFA::TransitiveTable NFA::buildTransitiveTable() const
     return transTable;
 }
 
-NFA::TransitiveTable NFA::buildReverseTransitiveTable() const
+NFA::ReverseTable NFA::buildReverseTransitiveTable() const
 {
     assert(IsDFA && "It's expected that the NFA meets DFA requirements");
 
-    TransitiveTable table;
-    table.resize(Storage.size());
-
-    const size_t InvalidID = Storage.size();
+    SmallVector<SmallVector<DenseSet<StateID>, TransTableRowSize>, 0> table;
+    table.resize(Storage.size() + 1);
     for (auto &row : table)
-        row.resize(TransTableRowSize, InvalidID);
+        row.resize(TransTableRowSize);
 
-    for (StateID id = 0; id < Storage.size(); id++) {
-        const auto *state = Storage[id].get();
-        for (const auto &edge : state->getEdges())
-            table[edge.getTarget()->getID()][edge.getSymbol()] = id;
+    TransitiveTable transTable = buildTransitiveTable();
+    for (StateID id = 0; id < transTable.size(); id++) {
+        for (Symbol c = 0; c <= MaxSymbolValue; c++) {
+            auto nextID = transTable[id][c];
+            table[nextID][c].insert(id);
+        }
     }
-    return table;
+
+    ReverseTable reverseTable;
+    reverseTable.resize(table.size() + 1);
+    for (auto &row : reverseTable)
+        row.resize(TransTableRowSize);
+
+    for (StateID id = 0; id < table.size(); id++) {
+        for (Symbol c = 0; c <= MaxSymbolValue; c++)
+            for (StateID i : table[id][c])
+                reverseTable[id][c].push_back(i);
+    }
+    return reverseTable;
 }
 
 /// Returns type required for containing of \p size states plus invalid one.
