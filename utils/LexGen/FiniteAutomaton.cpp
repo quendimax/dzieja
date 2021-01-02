@@ -281,18 +281,69 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
         }
     }
     ++expr;
+    return buildSquareSubAutom(unicodeMarkers);
+}
 
+NFA::SubAutomaton NFA::buildSquareSubAutom(const llvm::BitVector &unicodeMarkers)
+{
+    DenseMap<char, State *> secondCache;
+    DenseMap<char, DenseMap<char, State *>> thirdCache;
+    DenseMap<char, DenseMap<char, DenseMap<char, State *>>> fourthCache;
     auto *firstState = makeState();
     auto *lastState = makeState();
     for (UTF32 c = 0; c <= UNI_MAX_LEGAL_UTF32; c++)
         if ((c < UNI_SUR_HIGH_START || UNI_SUR_LOW_END < c) && unicodeMarkers[c]) {
-            if (c > 127) {
-                auto autom = makeSubAutomFromCodePoint(c, {firstState, lastState});
-                firstState->connectTo(autom.first, Epsilon);
-                autom.second->connectTo(lastState, Epsilon);
+            SmallString<UNI_MAX_UTF8_BYTES_PER_CODE_POINT> u8Seq;
+            u8Seq.set_size(UNI_MAX_UTF8_BYTES_PER_CODE_POINT);
+            char *ptr = u8Seq.data();
+            if (!ConvertCodePointToUTF8(c, ptr)) {
+                auto &err = error() << "can't convert code point ";
+                err.write_hex(c) << " into UTF8 sequence\n";
+                std::exit(1);
             }
-            else { // c is ASCII compatible
-                firstState->connectTo(lastState, c);
+            unsigned size = ptr - u8Seq.data();
+
+            if (size == 1) {
+                firstState->connectTo(lastState, u8Seq[0]);
+            }
+            else {
+                State *secondState = secondCache[u8Seq[0]];
+                if (secondState == nullptr) {
+                    secondState = makeState();
+                    secondCache[u8Seq[0]] = secondState;
+                    firstState->connectTo(secondState, u8Seq[0]);
+                }
+
+                if (size == 2) {
+                    secondState->connectTo(lastState, u8Seq[1]);
+                }
+                else {
+                    State *thirdState = thirdCache[u8Seq[0]][u8Seq[1]];
+                    if (thirdState == nullptr) {
+                        thirdState = makeState();
+                        thirdCache[u8Seq[0]][u8Seq[1]] = thirdState;
+                        secondState->connectTo(thirdState, u8Seq[1]);
+                    }
+
+                    if (size == 3) {
+                        thirdState->connectTo(lastState, u8Seq[2]);
+                    }
+                    else {
+                        State *fourthState = fourthCache[u8Seq[0]][u8Seq[1]][u8Seq[2]];
+                        if (fourthState == nullptr) {
+                            fourthState = makeState();
+                            fourthCache[u8Seq[0]][u8Seq[1]][u8Seq[2]] = fourthState;
+                            thirdState->connectTo(fourthState, u8Seq[2]);
+                        }
+
+                        if (size == 4) {
+                            fourthState->connectTo(lastState, u8Seq[3]);
+                        }
+                        else {
+                            llvm_unreachable("max length of a UTF8 sequence is 4");
+                        }
+                    }
+                }
             }
         }
     return {firstState, lastState};
