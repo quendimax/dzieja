@@ -12,15 +12,15 @@ using namespace llvm;
 
 static cl::opt<std::string> Output("o", cl::desc("Specify output filename"), cl::init("a.inc"),
                                    cl::value_desc("filename"));
+static cl::opt<bool> Verbose("v", cl::init(false),
+                             cl::desc("Print some information about a DFA building process"));
 static cl::opt<NFA::GeneratingMode>
     GenMode(cl::init(NFA::GM_Table),
+            cl::desc("Specify mode of transitive (delta) function generating:"),
             cl::values(clEnumValN(NFA::GM_Table, "gen-via-table",
                                   "Generate the function via transitive table"),
                        clEnumValN(NFA::GM_Switch, "gen-via-switch",
-                                  "Generate the function via switch-case control flow")),
-            cl::desc("Specify mode of transitive (delta) function generating"));
-static cl::opt<bool> Verbose("v", cl::init(false),
-                             cl::desc("Print some information about a DFA building process"));
+                                  "Generate the function via switch-case control flow")));
 
 static const char *Overview =
     "The program generates an inc-file with functions implementing DFA for\n"

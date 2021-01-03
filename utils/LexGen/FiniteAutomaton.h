@@ -184,7 +184,14 @@ private:
     State *makeState(tok::TokenKind kind = tok::unknown);
 
     /// Builds distinguishable/equivalent table. It works for DFA only!
-    llvm::SmallVector<llvm::BitVector, 0> buildDistinguishTable(bool distinguishKinds) const;
+    ///
+    /// It uses an algorithm with complexity O(n^2). But it can use plenty of memory.
+    llvm::SmallVector<llvm::BitVector, 0> buildDistinguishTableO2(bool distinguishKinds) const;
+
+    /// Builds distinguishable/equivalent table. It works for DFA only!
+    ///
+    /// It uses an algorithm with complexity O(n^4), and is memory efficient.
+    llvm::SmallVector<llvm::BitVector, 0> buildDistinguishTableO4(bool distinguishKinds) const;
 
     /// Prints the distinguishable table. It's used as debug information only.
     void dumpDistinguishTable(const llvm::SmallVector<llvm::BitVector, 0> &distingTable,

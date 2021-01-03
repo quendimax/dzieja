@@ -5,6 +5,7 @@
 #include <llvm/ADT/DenseSet.h>
 #include <llvm/ADT/STLExtras.h>
 #include <llvm/ADT/SmallString.h>
+#include <llvm/Support/CommandLine.h>
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/WithColor.h>
 #include <llvm/Support/raw_ostream.h>
@@ -20,6 +21,16 @@ using namespace llvm;
 using namespace std;
 
 namespace dzieja {
+
+enum MinimizationAlgorithm { MA_O2, MA_O4 };
+
+static cl::opt<MinimizationAlgorithm> MinimAlgo(
+    cl::init(MA_O2), cl::desc("Specify minimization algorithm:"),
+    cl::values(
+        clEnumValN(MA_O2, "use-min-algo-o2",
+                   "Faster algorithm with complexity O(N^2), but it can use a lot of memory."),
+        clEnumValN(MA_O4, "use-min-algo-o4",
+                   "Slower algorithm with complexity O(N^4), but it is memory efficient.")));
 
 static auto &error()
 {
@@ -543,10 +554,14 @@ NFA NFA::buildMinimizedDFA() const
         std::exit(1);
     }
 
-    auto distingTable = buildDistinguishTable(/*distinguishKinds=*/true);
+    SmallVector<BitVector, 0> distinguishTable;
+    if (MinimAlgo == MA_O2)
+        distinguishTable = buildDistinguishTableO2(/*distinguishKinds=*/true);
+    else
+        distinguishTable = buildDistinguishTableO4(/*distinguishKinds=*/true);
 
 #define DEBUG_TYPE "disting-table"
-    LLVM_DEBUG(dumpDistinguishTable(distingTable, llvm::errs()));
+    LLVM_DEBUG(dumpDistinguishTable(distinguishTable, llvm::errs()));
 #undef DEBUG_TYPE
 
     NFA minDfa;
@@ -569,7 +584,7 @@ NFA NFA::buildMinimizedDFA() const
             if (checkedStates[nextID])
                 continue;
 
-            if (!areDistinguishable(distingTable, id, nextID)) {
+            if (!areDistinguishable(distinguishTable, id, nextID)) {
                 group.insert(Storage[nextID].get());
                 checkedStates[nextID] = true;
             }
@@ -664,7 +679,7 @@ State *NFA::makeState(tok::TokenKind kind)
     return Storage.back().get();
 }
 
-SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) const
+SmallVector<BitVector, 0> NFA::buildDistinguishTableO2(bool distinguishKinds) const
 {
     assert(IsDFA && "can't make equivalent table for non DFA");
 
@@ -719,6 +734,63 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTable(bool distinguishKinds) cons
             }
         }
     }
+    return distinTable;
+}
+
+SmallVector<BitVector, 0> NFA::buildDistinguishTableO4(bool distinguishKinds) const
+{
+    assert(IsDFA && "can't make equivalent table for non DFA");
+
+    // equivalent table initialization
+    SmallVector<BitVector, 0> distinTable;
+    distinTable.resize(Storage.size());
+    for (size_t i = 0, e = Storage.size(); i < e; i++)
+        distinTable[i].resize(e, false);
+
+    for (size_t i = 0, e = Storage.size(); i < e; i++) {
+        for (size_t j = i + 1; j < e; j++) {
+            auto *st1 = Storage[i].get();
+            auto *st2 = Storage[j].get();
+            if ((st1->isTerminal() && !st2->isTerminal())
+                || (!st1->isTerminal() && st2->isTerminal())) {
+                distinTable[i][j] = true;
+            }
+            else if (distinguishKinds) {
+                if (st1->isTerminal() && st2->isTerminal() && st1->getKind() != st2->getKind())
+                    // we need to distinguish key words and identifier for example
+                    distinTable[i][j] = true;
+            }
+        }
+    }
+
+    const StateID InvalidID = Storage.size();
+    auto transTable = buildTransitiveTable();
+    bool isUpdated;
+    do {
+        isUpdated = false;
+        for (StateID i = 0, e = Storage.size(); i < e; i++) {
+            for (StateID j = i + 1; j < e; j++) {
+                if (distinTable[i][j])
+                    continue;
+
+                for (Symbol c = 0u; c <= MaxSymbolValue; c++) {
+                    StateID nextState1 = transTable[i][c];
+                    StateID nextState2 = transTable[j][c];
+                    if (nextState1 == InvalidID && nextState2 == InvalidID)
+                        continue;
+
+                    if ((nextState1 != InvalidID && nextState2 == InvalidID)
+                        || (nextState1 == InvalidID && nextState2 != InvalidID)
+                        || areDistinguishable(distinTable, nextState1, nextState2)) {
+                        distinTable[i][j] = true;
+                        isUpdated = true;
+                        break;
+                    }
+                }
+            }
+        }
+    } while (isUpdated);
+
     return distinTable;
 }
 
