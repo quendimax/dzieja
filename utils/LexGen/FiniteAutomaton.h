@@ -150,11 +150,11 @@ private:
     using SubAutomaton = std::pair<State *, State *>;
 
     SubAutomaton parseSequence(const char *&expr);
-    SubAutomaton makeSubAutomFromCodePoint(llvm::UTF32 codePoint, SubAutomaton);
+    SubAutomaton makeSubAutomFromUnicodePoint(llvm::UTF32 unicodePoint, SubAutomaton);
     SubAutomaton parseSymbol(const char *&expr);
     SubAutomaton parseParen(const char *&expr);
     SubAutomaton parseSquare(const char *&expr);
-    SubAutomaton buildSquareSubAutom(const llvm::BitVector &unicodeMarkers);
+    SubAutomaton buildSquareSubAutom(const llvm::BitVector &unicodeMask);
     SubAutomaton parseQualifier(const char *&expr, SubAutomaton);
     SubAutomaton parseQuestion(const char *&expr, SubAutomaton);
     SubAutomaton parseStar(const char *&expr, SubAutomaton);

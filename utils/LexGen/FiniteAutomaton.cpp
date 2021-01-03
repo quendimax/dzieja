@@ -136,15 +136,15 @@ static UTF32 parseUnicodeEscape(const char *&expr)
 
     char marker = *expr;
     int numOfDigits = marker == 'u' ? 4 : 6;
-    UTF32 codePoint = 0;
+    UTF32 uniPoint = 0;
     for (int i = 0; i < numOfDigits; i++) {
         int c = (unsigned char)*++expr;
         if (std::isxdigit(c)) {
-            codePoint <<= 4;
+            uniPoint <<= 4;
             if (std::isdigit(c))
-                codePoint |= c - '0';
+                uniPoint |= c - '0';
             else
-                codePoint |= std::toupper(c) - 'A' + 10;
+                uniPoint |= std::toupper(c) - 'A' + 10;
         }
         else {
             error() << "after \\" << marker << " " << numOfDigits << " hex digits are expected\n";
@@ -152,18 +152,18 @@ static UTF32 parseUnicodeEscape(const char *&expr)
         }
     }
     // I don't add ++expr because it is in outer parseSymbolCodePoint function.
-    return codePoint;
+    return uniPoint;
 }
 
 /// Parse a symbol and returns its unicode point. It doesn't create \p SubAutomaton unlike
 /// \p parseSymbol method.
 static UTF32 parseSymbolCodePoint(const char *&expr)
 {
-    UTF32 codePoint;
+    UTF32 uniPoint;
     if (*expr & 0x80) { // is not an ASCII char
         unsigned numBytes = llvm::getNumBytesForUTF8((UTF8)*expr);
         const UTF8 **source = (const UTF8 **)&expr;
-        auto result = convertUTF8Sequence(source, *source + numBytes, &codePoint, strictConversion);
+        auto result = convertUTF8Sequence(source, *source + numBytes, &uniPoint, strictConversion);
         if (result != conversionOK) {
             auto &err = error() << "source sequence '";
             err.write_escaped(StringRef(expr, numBytes)) << "' is malformed UTF8 symbol\n";
@@ -171,33 +171,33 @@ static UTF32 parseSymbolCodePoint(const char *&expr)
         }
     }
     else { // is an ASCII char
-        codePoint = (unsigned char)*expr;
+        uniPoint = (unsigned char)*expr;
         if (*expr == '\\') {
             ++expr;
             switch (*expr) {
             case 'n':
-                codePoint = (unsigned char)'\n';
+                uniPoint = (unsigned char)'\n';
                 break;
             case 'r':
-                codePoint = (unsigned char)'\r';
+                uniPoint = (unsigned char)'\r';
                 break;
             case 't':
-                codePoint = (unsigned char)'\t';
+                uniPoint = (unsigned char)'\t';
                 break;
             case 'v':
-                codePoint = (unsigned char)'\v';
+                uniPoint = (unsigned char)'\v';
                 break;
             case '0':
-                codePoint = (unsigned char)'\0';
+                uniPoint = (unsigned char)'\0';
                 break;
             case 'u':
             case 'U':
-                codePoint = parseUnicodeEscape(expr);
+                uniPoint = parseUnicodeEscape(expr);
                 break;
             // clang-format off
             case '(': case ')': case '[': case ']': case '-': case '\\':
             case '^': case '|': case '+': case '*': case '?':
-                codePoint = (unsigned char)*expr;
+                uniPoint = (unsigned char)*expr;
                 break;
             // clang-format on
             default:
@@ -208,18 +208,18 @@ static UTF32 parseSymbolCodePoint(const char *&expr)
         }
         ++expr;
     }
-    return codePoint;
+    return uniPoint;
 }
 
 // I use firstLast for optimization. It noticeably decrease number of states
-NFA::SubAutomaton NFA::makeSubAutomFromCodePoint(UTF32 codePoint, SubAutomaton firstLast)
+NFA::SubAutomaton NFA::makeSubAutomFromUnicodePoint(UTF32 unicodePoint, SubAutomaton firstLast)
 {
     SmallString<UNI_MAX_UTF8_BYTES_PER_CODE_POINT> u8seq;
     u8seq.set_size(UNI_MAX_UTF8_BYTES_PER_CODE_POINT);
     char *ptr = u8seq.data();
-    if (!ConvertCodePointToUTF8(codePoint, ptr)) {
+    if (!ConvertCodePointToUTF8(unicodePoint, ptr)) {
         auto &err = error() << "can't convert code point ";
-        err.write_hex(codePoint) << " into UTF8 sequence\n";
+        err.write_hex(unicodePoint) << " into UTF8 sequence\n";
         std::exit(1);
     }
     unsigned size = ptr - u8seq.data();
@@ -236,8 +236,8 @@ NFA::SubAutomaton NFA::makeSubAutomFromCodePoint(UTF32 codePoint, SubAutomaton f
 
 NFA::SubAutomaton NFA::parseSymbol(const char *&expr)
 {
-    UTF32 codePoint = parseSymbolCodePoint(expr);
-    return makeSubAutomFromCodePoint(codePoint, {makeState(), makeState()});
+    UTF32 uniPoint = parseSymbolCodePoint(expr);
+    return makeSubAutomFromUnicodePoint(uniPoint, {makeState(), makeState()});
 }
 
 NFA::SubAutomaton NFA::parseParen(const char *&expr)
@@ -263,12 +263,12 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
         isNegative = true;
         ++expr;
     }
-    llvm::BitVector unicodeMarkers; // marks if an element must be include in the range of chars
-    unicodeMarkers.resize(UNI_MAX_LEGAL_UTF32 + 1, isNegative);
+    llvm::BitVector unicodeMask; // marks if an element must be include in the range of chars
+    unicodeMask.resize(UNI_MAX_LEGAL_UTF32 + 1, isNegative);
 
     while (*expr != ']') {
         UTF32 firstPoint = parseSymbolCodePoint(expr);
-        unicodeMarkers[firstPoint] = !isNegative;
+        unicodeMask[firstPoint] = !isNegative;
 
         if (*expr == '-') {
             ++expr;
@@ -279,22 +279,24 @@ NFA::SubAutomaton NFA::parseSquare(const char *&expr)
                 std::exit(1);
             }
             for (Symbol c = firstPoint; c <= secondPoint; c++)
-                unicodeMarkers[c] = !isNegative;
+                unicodeMask[c] = !isNegative;
         }
     }
     ++expr;
-    return buildSquareSubAutom(unicodeMarkers);
+    return buildSquareSubAutom(unicodeMask);
 }
 
-NFA::SubAutomaton NFA::buildSquareSubAutom(const llvm::BitVector &unicodeMarkers)
+NFA::SubAutomaton NFA::buildSquareSubAutom(const llvm::BitVector &unicodeMask)
 {
-    DenseMap<char, State *> secondCache;
-    DenseMap<char, DenseMap<char, State *>> thirdCache;
-    DenseMap<char, DenseMap<char, DenseMap<char, State *>>> fourthCache;
+    DenseMap<char, StateID> secondCache;
+    DenseMap<char, DenseMap<char, StateID>> thirdCache;
+    DenseMap<char, DenseMap<char, DenseMap<char, StateID>>> fourthCache;
+    DenseMap<StateID, BitVector> bitMap;
     auto *firstState = makeState();
     auto *lastState = makeState();
-    for (UTF32 c = 0; c <= UNI_MAX_LEGAL_UTF32; c++)
-        if ((c < UNI_SUR_HIGH_START || UNI_SUR_LOW_END < c) && unicodeMarkers[c]) {
+    StateID idCounter = 3;
+    for (UTF32 c = 0; c <= UNI_MAX_LEGAL_UTF32; c++) {
+        if ((c < UNI_SUR_HIGH_START || UNI_SUR_LOW_END < c) && unicodeMask[c]) {
             SmallString<UNI_MAX_UTF8_BYTES_PER_CODE_POINT> u8Seq;
             u8Seq.set_size(UNI_MAX_UTF8_BYTES_PER_CODE_POINT);
             char *ptr = u8Seq.data();
@@ -304,42 +306,40 @@ NFA::SubAutomaton NFA::buildSquareSubAutom(const llvm::BitVector &unicodeMarkers
                 std::exit(1);
             }
             unsigned size = ptr - u8Seq.data();
+            assert(0 < size && size <= 4);
 
             if (size == 1) {
                 firstState->connectTo(lastState, u8Seq[0]);
             }
             else {
-                State *secondState = secondCache[u8Seq[0]];
-                if (secondState == nullptr) {
-                    secondState = makeState();
-                    secondCache[u8Seq[0]] = secondState;
-                    firstState->connectTo(secondState, u8Seq[0]);
-                }
-
+                StateID secondID = secondCache[u8Seq[0]];
+                if (!secondID)
+                    secondCache[u8Seq[0]] = secondID = ++idCounter;
                 if (size == 2) {
-                    secondState->connectTo(lastState, u8Seq[1]);
+                    auto &mask = bitMap[secondID];
+                    if (mask.empty())
+                        mask.resize(MaxSymbolValue + 1);
+                    mask[(unsigned char)u8Seq[size - 1]] = true;
                 }
                 else {
-                    State *thirdState = thirdCache[u8Seq[0]][u8Seq[1]];
-                    if (thirdState == nullptr) {
-                        thirdState = makeState();
-                        thirdCache[u8Seq[0]][u8Seq[1]] = thirdState;
-                        secondState->connectTo(thirdState, u8Seq[1]);
-                    }
-
+                    StateID thirdID = thirdCache[u8Seq[0]][u8Seq[1]];
+                    if (!thirdID)
+                        thirdCache[u8Seq[0]][u8Seq[1]] = thirdID = ++idCounter;
                     if (size == 3) {
-                        thirdState->connectTo(lastState, u8Seq[2]);
+                        auto &mask = bitMap[thirdID];
+                        if (mask.empty())
+                            mask.resize(MaxSymbolValue + 1);
+                        mask[(unsigned char)u8Seq[size - 1]] = true;
                     }
                     else {
-                        State *fourthState = fourthCache[u8Seq[0]][u8Seq[1]][u8Seq[2]];
-                        if (fourthState == nullptr) {
-                            fourthState = makeState();
-                            fourthCache[u8Seq[0]][u8Seq[1]][u8Seq[2]] = fourthState;
-                            thirdState->connectTo(fourthState, u8Seq[2]);
-                        }
-
+                        StateID fourthID = fourthCache[u8Seq[0]][u8Seq[1]][u8Seq[2]];
+                        if (!fourthID)
+                            fourthCache[u8Seq[0]][u8Seq[1]][u8Seq[2]] = fourthID = ++idCounter;
                         if (size == 4) {
-                            fourthState->connectTo(lastState, u8Seq[3]);
+                            auto &mask = bitMap[fourthID];
+                            if (mask.empty())
+                                mask.resize(MaxSymbolValue + 1);
+                            mask[(unsigned char)u8Seq[size - 1]] = true;
                         }
                         else {
                             llvm_unreachable("max length of a UTF8 sequence is 4");
@@ -348,6 +348,55 @@ NFA::SubAutomaton NFA::buildSquareSubAutom(const llvm::BitVector &unicodeMarkers
                 }
             }
         }
+    }
+
+    DenseMap<BitVector, State *> maskToState;
+    DenseMap<StateID, State *> stateIdToPtr;
+    for (const auto &I : bitMap) {
+        State *state = maskToState[I.second];
+        if (!state) {
+            state = makeState();
+            maskToState[I.second] = state;
+            for (Symbol c = 0; c <= MaxSymbolValue; ++c)
+                if (I.second[c])
+                    state->connectTo(lastState, c);
+        }
+        stateIdToPtr[I.first] = state;
+    }
+
+    for (const auto &I : secondCache) {
+        StateID stateID = I.second;
+        auto *state = stateIdToPtr[stateID];
+        if (!state)
+            stateIdToPtr[stateID] = state = makeState();
+        firstState->connectTo(state, I.first);
+    }
+
+    for (const auto &J : thirdCache) {
+        auto *secondState = stateIdToPtr[secondCache[J.first]];
+        for (const auto &I : J.second) {
+            StateID stateID = I.second;
+            auto *state = stateIdToPtr[stateID];
+            if (!state)
+                stateIdToPtr[stateID] = state = makeState();
+            secondState->connectTo(state, I.first);
+        }
+    }
+
+    for (const auto &K : fourthCache) {
+        auto *secondState = stateIdToPtr[secondCache[K.first]];
+        for (const auto &J : K.second) {
+            auto *thirdState = stateIdToPtr[thirdCache[K.first][J.first]];
+            secondState->connectTo(thirdState, J.first);
+            for (const auto &I : J.second) {
+                StateID stateID = I.second;
+                auto *state = stateIdToPtr[stateID];
+                if (!state)
+                    stateIdToPtr[stateID] = state = makeState();
+                thirdState->connectTo(state, I.first);
+            }
+        }
+    }
     return {firstState, lastState};
 }
 
