@@ -14,6 +14,9 @@ class Lexer {
     const char *BufferEnd;
     const char *BufferPtr;
 
+    /// If this mode is enabled \p lex method returns \c comment tokens too.
+    bool InCommentRetentionMode = false;
+
 public:
     Lexer(const char *bufferStart, const char *bufferPtr, const char *bufferEnd);
     explicit Lexer(const llvm::MemoryBuffer *inputFile);
@@ -23,6 +26,10 @@ public:
 
     /// Reads next token from an input buffer. Depending on the settings it can skip comment tokens.
     void lex(Token &result);
+
+    void enableCommentRetentionMode() { InCommentRetentionMode = true; }
+    void disableCommentRetentionMode() { InCommentRetentionMode = false; }
+    bool inCommentRetentionMode() const { return InCommentRetentionMode; }
 
 private:
     /// Reads next token from an input buffer.

@@ -36,9 +36,16 @@ Lexer::Lexer(const MemoryBuffer *inputFile)
 
 void Lexer::lex(Token &result)
 {
-    do {
-        lexInternal(result);
-    } while (result.isOneOf(tok::gap, tok::comment));
+    if (inCommentRetentionMode()) {
+        do {
+            lexInternal(result);
+        } while (result.isOneOf(tok::gap));
+    }
+    else {
+        do {
+            lexInternal(result);
+        } while (result.isOneOf(tok::gap, tok::comment));
+    }
 }
 
 // This file is an implementation of DFA for lexer. It is consist of functions

@@ -31,11 +31,17 @@ int main(int argc, const char *argv[])
 
     for (int i = 0; i < Repeat; ++i) {
         Lexer L(buffer.get().get());
+        L.enableCommentRetentionMode();
         Token T;
         do {
             L.lex(T);
-            if (PrintTokenName)
-                llvm::outs() << T.getName() << "\n";
+            if (PrintTokenName) {
+                llvm::outs() << T.getName();
+                if (PrintTokenSpelling)
+                    llvm::outs() << ": ";
+                else
+                    llvm::outs() << "\n";
+            }
             if (PrintTokenSpelling)
                 llvm::outs() << T.getSpelling() << "\n";
         } while (!T.is(dzieja::tok::eof));
