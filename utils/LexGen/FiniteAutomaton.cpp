@@ -595,6 +595,8 @@ NFA NFA::buildMinimizedDFA() const
             // expected only one kind of all the group
             if (state->isTerminal())
                 newState->setKind(state->getKind());
+            if (state == getStartState())
+                minDfa.Q0 = newState;
             old2new[state] = newState;
             new2old[newState] = group;
         }
