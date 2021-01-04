@@ -208,7 +208,7 @@ private:
     void printKindTable(llvm::raw_ostream &, int indent = 0) const;
 
     void printHeadComment(llvm::raw_ostream &, llvm::StringRef end = "") const;
-    void printInvalidStateConstant(llvm::raw_ostream &, llvm::StringRef end = "") const;
+    void printConstants(llvm::raw_ostream &, llvm::StringRef end = "") const;
 
     /// Prints transitive function implemented via transitive table.
     void printTransTableFunction(llvm::raw_ostream &, llvm::StringRef end = "") const;

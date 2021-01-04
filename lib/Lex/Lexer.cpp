@@ -67,7 +67,7 @@ void Lexer::lexInternal(Token &result)
 
     if (DFA_getKind(prevID) == tok::unknown) {
         auto &err = WithColor::error() << "unexpected symbol '";
-        err.write_escaped(StringRef(BufferPtr - 20, 21), true) << "'\n";
+        err.write_escaped(StringRef(BufferPtr, 1), true) << "'\n";
         std::exit(1);
     }
 

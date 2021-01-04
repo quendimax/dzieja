@@ -567,6 +567,7 @@ NFA NFA::buildMinimizedDFA() const
     NFA minDfa;
     minDfa.IsDFA = true;
     minDfa.Storage.pop_back();
+    minDfa.Q0 = nullptr;
 
     // Build groups of states
     DenseMap<const State *, State *> old2new;
@@ -601,6 +602,7 @@ NFA NFA::buildMinimizedDFA() const
             new2old[newState] = group;
         }
     }
+    assert(minDfa.Q0);
 
     // Build edges between new states
     for (auto &item : new2old) {
@@ -642,7 +644,7 @@ bool NFA::generateCppImpl(StringRef filename, NFA::GeneratingMode mode) const
     }
 
     printHeadComment(out, "\n");
-    printInvalidStateConstant(out, "\n\n");
+    printConstants(out, "\n\n");
     if (mode == GM_Table)
         printTransTableFunction(out, "\n\n");
     else if (mode == GM_Switch)
@@ -919,7 +921,7 @@ void NFA::printHeadComment(raw_ostream &out, StringRef end) const
     out << end;
 }
 
-void NFA::printInvalidStateConstant(raw_ostream &out, StringRef end) const
+void NFA::printConstants(raw_ostream &out, StringRef end) const
 {
     out << "enum {\n";
     out << "    DFA_StartStateID = " << Q0->getID() << "u,\n";
