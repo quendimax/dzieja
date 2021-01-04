@@ -10,17 +10,19 @@ using namespace dzieja;
 using namespace llvm;
 
 
-static cl::opt<std::string> Output("o", cl::desc("Specify output filename"), cl::init("a.inc"),
+static cl::opt<std::string> Output("o", cl::desc("Specify output filename."), cl::init("a.inc"),
                                    cl::value_desc("filename"));
+static cl::opt<bool> NoMinimization("no-minimization", cl::init(false),
+                                    cl::desc("Don't apply any minimization algorithm for DFA."));
 static cl::opt<bool> Verbose("v", cl::init(false),
-                             cl::desc("Print some information about a DFA building process"));
+                             cl::desc("Print some information about a DFA building process."));
 static cl::opt<NFA::GeneratingMode>
     GenMode(cl::init(NFA::GM_Table),
             cl::desc("Specify mode of transitive (delta) function generating:"),
             cl::values(clEnumValN(NFA::GM_Table, "gen-via-table",
                                   "Generate the function via transitive table"),
                        clEnumValN(NFA::GM_Switch, "gen-via-switch",
-                                  "Generate the function via switch-case control flow")));
+                                  "Generate the function via switch-case control flow.")));
 
 static const char *Overview =
     "The program generates an inc-file with functions implementing DFA for\n"
@@ -55,6 +57,12 @@ int main(int argc, char *argv[])
 #define DEBUG_TYPE "dfa"
     LLVM_DEBUG(dfa.print(llvm::errs()) << "\n");
 #undef DEBUG_TYPE
+
+    if (NoMinimization) {
+        if (!dfa.generateCppImpl(Output.c_str(), GenMode))
+            return 1;
+        return 0;
+    }
 
     NFA minDfa = dfa.buildMinimizedDFA();
     if (Verbose)
