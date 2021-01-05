@@ -719,7 +719,7 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTableO2(bool distinguishKinds) co
     while (!queue.empty()) {
         auto curPair = queue.front();
         queue.pop();
-        for (Symbol c = 0; c < MaxSymbolValue; c++) {
+        for (Symbol c = 0; c <= MaxSymbolValue; c++) {
             for (StateID firstID : reverseTable[curPair.first][c]) {
                 for (StateID secondID : reverseTable[curPair.second][c]) {
                     if (firstID < secondID) {
