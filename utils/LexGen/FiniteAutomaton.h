@@ -26,6 +26,7 @@
 #include <cassert>
 #include <limits>
 #include <memory>
+#include <queue>
 #include <set>
 #include <utility>
 
@@ -183,15 +184,20 @@ private:
 
     State *makeState(tok::TokenKind kind = tok::unknown);
 
+    llvm::SmallVector<llvm::BitVector, 0>
+    initDistinguishTableO2(std::queue<std::pair<StateID, StateID>> &queue) const;
+
     /// Builds distinguishable/equivalent table. It works for DFA only!
     ///
     /// It uses an algorithm with complexity O(n^2). But it can use plenty of memory.
-    llvm::SmallVector<llvm::BitVector, 0> buildDistinguishTableO2(bool distinguishKinds) const;
+    llvm::SmallVector<llvm::BitVector, 0> buildDistinguishTableO2() const;
+
+    llvm::SmallVector<llvm::BitVector, 0> initDistinguishTableO4() const;
 
     /// Builds distinguishable/equivalent table. It works for DFA only!
     ///
     /// It uses an algorithm with complexity O(n^4), and is memory efficient.
-    llvm::SmallVector<llvm::BitVector, 0> buildDistinguishTableO4(bool distinguishKinds) const;
+    llvm::SmallVector<llvm::BitVector, 0> buildDistinguishTableO4() const;
 
     /// Prints the distinguishable table. It's used as debug information only.
     void dumpDistinguishTable(const llvm::SmallVector<llvm::BitVector, 0> &distingTable,

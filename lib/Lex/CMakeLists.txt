@@ -18,6 +18,6 @@ target_link_libraries(dziejaLex
 
 add_custom_command(
     OUTPUT "${LEX_DFA_FILE}"
-    COMMAND dzieja-lexgen -gen-via-table -use-min-algo-o2 -o "${LEX_DFA_FILE}"
+    COMMAND dzieja-lexgen -gen-via-table -use-min-algo-o4 -o "${LEX_DFA_FILE}"
     DEPENDS dzieja-lexgen
 )

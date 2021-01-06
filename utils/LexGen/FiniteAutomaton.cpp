@@ -12,7 +12,6 @@
 
 #include <cctype>
 #include <map>
-#include <queue>
 
 #define UNI_SUR_HIGH_START (UTF32)0xD800
 #define UNI_SUR_LOW_END (UTF32)0xDFFF
@@ -31,6 +30,11 @@ static cl::opt<MinimizationAlgorithm> MinimAlgo(
                    "Faster algorithm with complexity O(N^2), but it can use a lot of memory."),
         clEnumValN(MA_O4, "use-min-algo-o4",
                    "Slower algorithm with complexity O(N^4), but it is memory efficient.")));
+
+static cl::opt<bool>
+    UnifyTokenKinds("unify-token-kinds", cl::init(false),
+                    cl::desc("With this option LexGen won't distinguish different types of tokens "
+                             "if they match with some kinds at the same time"));
 
 static auto &error()
 {
@@ -556,9 +560,9 @@ NFA NFA::buildMinimizedDFA() const
 
     SmallVector<BitVector, 0> distinguishTable;
     if (MinimAlgo == MA_O2)
-        distinguishTable = buildDistinguishTableO2(/*distinguishKinds=*/true);
+        distinguishTable = buildDistinguishTableO2();
     else
-        distinguishTable = buildDistinguishTableO4(/*distinguishKinds=*/true);
+        distinguishTable = buildDistinguishTableO4();
 
 #define DEBUG_TYPE "disting-table"
     LLVM_DEBUG(dumpDistinguishTable(distinguishTable, llvm::errs()));
@@ -683,12 +687,10 @@ State *NFA::makeState(tok::TokenKind kind)
     return Storage.back().get();
 }
 
-SmallVector<BitVector, 0> NFA::buildDistinguishTableO2(bool distinguishKinds) const
+SmallVector<BitVector, 0>
+NFA::initDistinguishTableO2(std::queue<std::pair<StateID, StateID>> &queue) const
 {
-    assert(IsDFA && "can't make equivalent table for non DFA");
-
     const StateID InvalidID = Storage.size();
-    std::queue<std::pair<StateID, StateID>> queue;
     SmallVector<BitVector, 0> distinTable;
     distinTable.resize(Storage.size() + 1);
     for (size_t i = 0, e = Storage.size() + 1; i < e; i++)
@@ -703,7 +705,7 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTableO2(bool distinguishKinds) co
                 distinTable[i][j] = true;
                 queue.push({i, j});
             }
-            else if (distinguishKinds) {
+            else if (!UnifyTokenKinds) {
                 if (st1->isTerminal() && st2->isTerminal() && st1->getKind() != st2->getKind()) {
                     // we need to distinguish key words and identifier for example
                     distinTable[i][j] = true;
@@ -714,7 +716,15 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTableO2(bool distinguishKinds) co
         distinTable[i][InvalidID] = true;
         queue.push({i, InvalidID});
     }
+    return distinTable;
+}
 
+SmallVector<BitVector, 0> NFA::buildDistinguishTableO2() const
+{
+    assert(IsDFA && "can't make equivalent table for non DFA");
+
+    std::queue<std::pair<StateID, StateID>> queue;
+    auto distinTable = initDistinguishTableO2(queue);
     auto reverseTable = buildReverseTransitiveTable();
     while (!queue.empty()) {
         auto curPair = queue.front();
@@ -741,32 +751,36 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTableO2(bool distinguishKinds) co
     return distinTable;
 }
 
-SmallVector<BitVector, 0> NFA::buildDistinguishTableO4(bool distinguishKinds) const
+SmallVector<BitVector, 0> NFA::initDistinguishTableO4() const
 {
-    assert(IsDFA && "can't make equivalent table for non DFA");
-
-    // equivalent table initialization
     SmallVector<BitVector, 0> distinTable;
     distinTable.resize(Storage.size());
-    for (size_t i = 0, e = Storage.size(); i < e; i++)
+    for (unsigned i = 0, e = Storage.size(); i < e; i++)
         distinTable[i].resize(e, false);
 
-    for (size_t i = 0, e = Storage.size(); i < e; i++) {
-        for (size_t j = i + 1; j < e; j++) {
+    for (unsigned i = 0, e = Storage.size(); i < e; i++) {
+        for (unsigned j = i + 1; j < e; j++) {
             auto *st1 = Storage[i].get();
             auto *st2 = Storage[j].get();
             if ((st1->isTerminal() && !st2->isTerminal())
                 || (!st1->isTerminal() && st2->isTerminal())) {
                 distinTable[i][j] = true;
             }
-            else if (distinguishKinds) {
+            else if (!UnifyTokenKinds) {
                 if (st1->isTerminal() && st2->isTerminal() && st1->getKind() != st2->getKind())
                     // we need to distinguish key words and identifier for example
                     distinTable[i][j] = true;
             }
         }
     }
+    return distinTable;
+}
 
+SmallVector<BitVector, 0> NFA::buildDistinguishTableO4() const
+{
+    assert(IsDFA && "can't make equivalent table for non DFA");
+
+    auto distinTable = initDistinguishTableO4();
     const StateID InvalidID = Storage.size();
     auto transTable = buildTransitiveTable();
     bool isUpdated;
