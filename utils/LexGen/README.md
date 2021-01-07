@@ -92,14 +92,43 @@ determines how many times that symbol/sub-regex can be repeated in input stream.
 
 The next escaped characters are supported:
 
-- `\n` - Line Feed, New Line
-- `\r` - Carriage Return
-- `\t` - Horizontal Tabular
-- `\v` - Vertical Tabular
-- `\0` - Null
-- `\]` - it makes sense only inside square brackets.
+- `\n` — Line Feed, New Line
+- `\r` — Carriage Return
+- `\t` — Horizontal Tabular
+- `\v` — Vertical Tabular
+- `\0` — Null
+- `\]` — it makes sense only inside square brackets.
 - `(`, `)`, `[`, `-`, `\`, `|`, `^`, `+`, `*`, `?`.
 
 If just after open `[` the `^` character is set, it means that range of allowed
 characters is inverted, i.e. on the current position can be any character except
 of listed ones.
+
+### Unicode escaped expression
+
+To express any Unicode point there are two escaped expressions:
+
+- `\uNNNN` — for Unicode points between `0` and `FFFF`,
+- `\UNNNNNN` — for Unicode points between `10000` and `10FFFF`,
+
+where `N` is any hexadecimal digit.
+
+## Unicode support
+
+`LexGen` generates DFA with support of UTF-8. As well as many other regex
+parsers `LexGen` converts symbols (including `\u`-escaped expressions) into
+UTF-8 sequences of bytes. But in contrast to others with qualifiers and the `[]`
+expression it understands a Unicode symbol as a single whole.
+
+For example, regular expression `Ў*` will be interpreted as any number of byte
+sequences `D0 8E`.
+
+In `[]`-expression there is the same thing. A UTF-8 byte sequence is one single
+`1-4`-bytes symbol, not some separated bytes.
+
+A negative `[^...]` expression means that on the position of the expression can
+be any Unicode symbol from the range between `0` and `10FFFF` with the exception
+of the [surrogate range][surrogates] `D800-DFFF` and listed between squares
+symbols.
+
+[surrogates]: https://en.wikipedia.org/wiki/Universal_Character_Set_characters#Surrogates
