@@ -24,12 +24,12 @@ namespace dzieja {
 enum MinimizationAlgorithm { MA_O2, MA_O4 };
 
 static cl::opt<MinimizationAlgorithm> MinimAlgo(
-    cl::init(MA_O2), cl::desc("Specify minimization algorithm:"),
+    cl::init(MA_O4), cl::desc("Specify minimization algorithm:"),
     cl::values(
         clEnumValN(MA_O2, "use-min-algo-o2",
-                   "Faster algorithm with complexity O(N^2), but it can use a lot of memory."),
+                   "Minimizing algorithm with complexity O(N^2). It can use a lot of memory. Default."),
         clEnumValN(MA_O4, "use-min-algo-o4",
-                   "Slower algorithm with complexity O(N^4), but it is memory efficient.")));
+                   "Minimizing algorithm with complexity O(N^4). It is more memory efficient.")));
 
 static cl::opt<bool>
     UnifyTokenKinds("unify-token-kinds", cl::init(false),
@@ -792,17 +792,31 @@ SmallVector<BitVector, 0> NFA::buildDistinguishTableO4() const
                     continue;
 
                 for (Symbol c = 0u; c <= MaxSymbolValue; c++) {
-                    StateID nextState1 = transTable[i][c];
-                    StateID nextState2 = transTable[j][c];
-                    if (nextState1 == InvalidID && nextState2 == InvalidID)
-                        continue;
-
-                    if ((nextState1 != InvalidID && nextState2 == InvalidID)
-                        || (nextState1 == InvalidID && nextState2 != InvalidID)
-                        || areDistinguishable(distinTable, nextState1, nextState2)) {
-                        distinTable[i][j] = true;
-                        isUpdated = true;
-                        break;
+                    StateID nextIid = transTable[i][c];
+                    StateID nextJid = transTable[j][c];
+                    if (nextIid == InvalidID) {
+                        if (nextJid == InvalidID) {
+                            continue;
+                        }
+                        else {
+                            distinTable[i][j] = true;
+                            isUpdated = true;
+                            break;
+                        }
+                    }
+                    else {
+                        if (nextJid == InvalidID) {
+                            distinTable[i][j] = true;
+                            isUpdated = true;
+                            break;
+                        }
+                        else {
+                            if (areDistinguishable(distinTable, nextIid, nextJid)) {
+                                distinTable[i][j] = true;
+                                isUpdated = true;
+                                break;
+                            }
+                        }
                     }
                 }
             }

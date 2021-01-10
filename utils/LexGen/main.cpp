@@ -20,7 +20,7 @@ static cl::opt<NFA::GeneratingMode>
     GenMode(cl::init(NFA::GM_Table),
             cl::desc("Specify mode of transitive (delta) function generating:"),
             cl::values(clEnumValN(NFA::GM_Table, "gen-via-table",
-                                  "Generate the function via transitive table"),
+                                  "Generate the function via transitive table. Default."),
                        clEnumValN(NFA::GM_Switch, "gen-via-switch",
                                   "Generate the function via switch-case control flow.")));
 
