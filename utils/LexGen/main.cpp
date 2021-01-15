@@ -20,13 +20,13 @@ static cl::opt<NFA::GeneratingMode>
     GenMode(cl::init(NFA::GM_Table),
             cl::desc("Specify mode of transitive (delta) function generating:"),
             cl::values(clEnumValN(NFA::GM_Table, "gen-via-table",
-                                  "Generate the function via transitive table. Default."),
+                                  "Generate the function via transitive table (default)."),
                        clEnumValN(NFA::GM_Switch, "gen-via-switch",
                                   "Generate the function via switch-case control flow.")));
 
 static const char *Overview =
     "The program generates an inc-file with functions implementing DFA for\n"
-    "lexical analyze of text.\n";
+    "          lexical analyze of text.\n";
 
 NFA buildNFA()
 {

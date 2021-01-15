@@ -23,18 +23,20 @@ namespace dzieja {
 
 enum MinimizationAlgorithm { MA_O2, MA_O4 };
 
-static cl::opt<MinimizationAlgorithm> MinimAlgo(
-    cl::init(MA_O4), cl::desc("Specify minimization algorithm:"),
-    cl::values(
-        clEnumValN(MA_O2, "use-min-algo-o2",
-                   "Minimizing algorithm with complexity O(N^2). It can use a lot of memory. Default."),
-        clEnumValN(MA_O4, "use-min-algo-o4",
-                   "Minimizing algorithm with complexity O(N^4). It is more memory efficient.")));
+static cl::opt<MinimizationAlgorithm>
+    MinimAlgo(cl::init(MA_O4), cl::desc("Specify minimization algorithm:"),
+              cl::values(clEnumValN(MA_O4, "use-min-algo-o4",
+                                    "Minimizing algorithm with complexity O(N^4). It is\n"
+                                    "   more memory efficient (default)."),
+                         clEnumValN(MA_O2, "use-min-algo-o2",
+                                    "Minimizing algorithm with complexity O(N^2). It can\n"
+                                    "   use a lot of memory.")));
 
 static cl::opt<bool>
     UnifyTokenKinds("unify-token-kinds", cl::init(false),
-                    cl::desc("With this option LexGen won't distinguish different types of tokens "
-                             "if they match with some kinds at the same time"));
+                    cl::desc("With this option LexGen won't distinguish different\n"
+                             "types of tokens if they match with some kinds at the\n"
+                             "same time."));
 
 static auto &error()
 {
@@ -149,6 +151,7 @@ static UTF32 parseUnicodeEscape(const char *&expr)
 {
     assert(*expr == 'u' || *expr == 'U');
 
+    const char *startExpr = expr - 1;
     char marker = *expr;
     int numOfDigits = marker == 'u' ? 4 : 6;
     UTF32 uniPoint = 0;
@@ -165,6 +168,11 @@ static UTF32 parseUnicodeEscape(const char *&expr)
             error() << "after \\" << marker << " " << numOfDigits << " hex digits are expected\n";
             std::exit(1);
         }
+    }
+    if (uniPoint > UNI_MAX_LEGAL_UTF32) {
+        error() << "escape expression " << StringRef(startExpr, numOfDigits + 2)
+                << " contains to big unicode point\n";
+        std::exit(1);
     }
     // I don't add ++expr because it is in outer parseSymbolCodePoint function.
     return uniPoint;
