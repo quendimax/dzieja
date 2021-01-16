@@ -82,6 +82,13 @@ raw_ostream &operator<<(raw_ostream &out, const State &state)
     return out;
 }
 
+void NFA::clear()
+{
+    Storage.clear();
+    Q0 = makeState();
+    IsDFA = false;
+}
+
 void NFA::parseRawString(const char *str, tok::TokenKind kind)
 {
     auto *curState = Q0;

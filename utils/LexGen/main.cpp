@@ -51,6 +51,7 @@ int main(int argc, char *argv[])
 
     NFA nfa = buildNFA();
     NFA dfa = nfa.buildDFA();
+    nfa.clear(); // clear heap
     if (Verbose)
         llvm::errs() << "DFA has " << dfa.getNumStates() << " states.\n";
 
@@ -65,6 +66,7 @@ int main(int argc, char *argv[])
     }
 
     NFA minDfa = dfa.buildMinimizedDFA();
+    dfa.clear();
     if (Verbose)
         llvm::errs() << "minDFA has " << minDfa.getNumStates() << " states.\n";
 

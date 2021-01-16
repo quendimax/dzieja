@@ -129,9 +129,12 @@ public:
         GM_Switch /// Generate delta-func via switch-case control flow
     };
 
-    NFA() : Q0(makeState()) {}
+    NFA() { clear(); }
     NFA(NFA &&) = default;
     NFA &operator=(NFA &&) = default;
+
+    /// Reset the NFA to the state with the single start state.
+    void clear();
 
     /// Receives Q0 state — the start state of the finite automaton.
     const State *getStartState() const { return Q0; }
