@@ -56,18 +56,15 @@ static bool areDistinguishable(const SmallVector<BitVector, 0> &table, StateID l
 StateSet State::getEspClosure() const
 {
     StateSet closure;
-    auto finder = [&closure](const State *state) {
-        auto finderImpl = [&closure](const State *state, auto &finderRef) {
-            if (is_contained(closure, state))
-                return;
-            closure.insert(state);
-            for (const Edge &edge : state->getEdges())
-                if (edge.getSymbol() == Epsilon)
-                    finderRef(edge.getTarget(), finderRef);
-        };
-        finderImpl(state, finderImpl);
+    auto finder = [&closure](const State *state, auto &finderRef) {
+        if (is_contained(closure, state))
+            return;
+        closure.insert(state);
+        for (const Edge &edge : state->getEdges())
+            if (edge.getSymbol() == Epsilon)
+                finderRef(edge.getTarget(), finderRef);
     };
-    finder(this);
+    finder(this, finder);
     return closure;
 }
 
@@ -481,18 +478,15 @@ NFA::SubAutomaton NFA::parsePlus(const char *&expr, SubAutomaton autom)
 NFA::SubAutomaton NFA::cloneSubAutomaton(SubAutomaton autom)
 {
     DenseMap<const State *, State *> map;
-    auto rec = [&map, this](const State *state) {
-        auto recImpl = [&map, this](const State *state, auto &recRef) {
-            if (map.find(state) != map.end())
-                return;
-            auto *newState = makeState();
-            map[state] = newState;
-            for (auto &edge : state->getEdges())
-                recRef(edge.getTarget(), recRef);
-        };
-        recImpl(state, recImpl);
+    auto rec = [&map, this](const State *state, auto &recRef) {
+        if (map.find(state) != map.end())
+            return;
+        auto *newState = makeState();
+        map[state] = newState;
+        for (auto &edge : state->getEdges())
+            recRef(edge.getTarget(), recRef);
     };
-    rec(autom.first);
+    rec(autom.first, rec);
 
     for (auto &item : map) {
         auto *origState = item.first;
@@ -528,40 +522,37 @@ NFA NFA::buildDFA() const
     dfa.Storage.pop_back(); // by default NFA contains the start state, but here we don't need it
     StateSet setQ0 = getStartState()->getEspClosure();
 
-    auto convert = [&](const StateSet &set) {
-        auto convertImpl = [&](const StateSet &set, auto &convertRef) {
-            auto iter = convTable.find(set);
-            if (iter != convTable.end())
-                return iter->second;
+    auto convert = [&](const StateSet &set, auto &convertRef) {
+        auto iter = convTable.find(set);
+        if (iter != convTable.end())
+            return iter->second;
 
-            auto newState = dfa.makeState();
-            StateID minID = this->getNumStates();
-            for (const auto state : set) {
-                if (state->isTerminal() && state->getID() < minID) {
-                    // lesser ID means that the state was defined earlier and has higher priority
-                    minID = state->getID();
-                    newState->setKind(state->getKind());
-                }
+        auto newState = dfa.makeState();
+        StateID minID = this->getNumStates();
+        for (const auto state : set) {
+            if (state->isTerminal() && state->getID() < minID) {
+                // lesser ID means that the state was defined earlier and has higher priority
+                minID = state->getID();
+                newState->setKind(state->getKind());
             }
-            convTable[set] = newState;
+        }
+        convTable[set] = newState;
 
-            SmallSet<Symbol, 1> symbols; // in generated DFA there are many one-edge-states
-            for (auto state : set)
-                for (const Edge &edge : state->getEdges())
-                    if (!edge.isEpsilon())
-                        symbols.insert(edge.getSymbol());
+        SmallSet<Symbol, 1> symbols; // in generated DFA there are many one-edge-states
+        for (auto state : set)
+            for (const Edge &edge : state->getEdges())
+                if (!edge.isEpsilon())
+                    symbols.insert(edge.getSymbol());
 
-            for (auto symbol : symbols) {
-                auto targetSet = findDFAState(set, symbol);
-                assert(!targetSet.empty() && "target set musn't be empty");
-                auto targetState = convertRef(targetSet, convertRef);
-                newState->connectTo(targetState, symbol);
-            }
-            return newState;
-        };
-        return convertImpl(set, convertImpl);
+        for (auto symbol : symbols) {
+            auto targetSet = findDFAState(set, symbol);
+            assert(!targetSet.empty() && "target set musn't be empty");
+            auto targetState = convertRef(targetSet, convertRef);
+            newState->connectTo(targetState, symbol);
+        }
+        return newState;
     };
-    dfa.Q0 = convert(setQ0);
+    dfa.Q0 = convert(setQ0, convert);
     dfa.IsDFA = true;
     return dfa;
 }
